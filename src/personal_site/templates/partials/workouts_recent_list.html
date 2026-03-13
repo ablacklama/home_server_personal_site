@@ -1,0 +1,45 @@
+<section class="card" id="recent-workouts" {% if oob %}hx-swap-oob="true"{% endif %}>
+    <h2>Recent workouts</h2>
+    {% if recent_workouts %}
+    <div class="workout-list">
+        {% for w in recent_workouts %}
+        <div class="workout-card">
+            <div class="workout-card__header">
+                <div class="workout-card__title">{{ w.type_name }}</div>
+                <div class="workout-card__meta">
+                    {{ w.performed_on }} · {{ w.time_bucket }}
+                    {% if w.entry_id %}
+                    ·
+                    <form method="post" action="{{ url_for('workouts.entry_delete', entry_id=w.entry_id) }}"
+                        hx-post="{{ url_for('workouts.entry_delete', entry_id=w.entry_id) }}"
+                        hx-target="#workouts-error"
+                        hx-swap="innerHTML"
+                        hx-confirm="Delete this workout entry? This cannot be undone."
+                        style="display:inline">
+                        <button type="submit">Delete</button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if w.metrics %}
+            <dl class="metrics">
+                {% for k, v in w.metrics %}
+                <div class="metrics__row">
+                    <dt>{{ k }}</dt>
+                    <dd>{{ v }}</dd>
+                </div>
+                {% endfor %}
+            </dl>
+            {% endif %}
+
+            {% if w.notes %}
+            <div class="workout-card__notes">{{ w.notes }}</div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p>No workouts logged yet.</p>
+    {% endif %}
+</section>

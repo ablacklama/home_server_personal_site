@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="subnav">
+    <a href="{{ url_for('caffeine.index') }}">Caffeine</a>
+</div>
+
+<h1>Caffeine tracker</h1>
+<p>Capture caffeine intake and timing.</p>
+
+<div id="caffeine-error">
+    {% include "partials/caffeine_error.html" %}
+</div>
+
+<section class="card">
+    <h2>Log caffeine</h2>
+    <form method="post" action="{{ url_for('caffeine.create_entry') }}"
+        hx-post="{{ url_for('caffeine.create_entry') }}"
+        hx-target="#caffeine-error"
+        hx-swap="innerHTML"
+        id="log-caffeine-form">
+        <label>
+            Date
+            <input type="date" name="consumed_on" value="{{ default_consumed_on }}" />
+        </label>
+
+        <label>
+            Time
+            <select name="time_bucket">
+                <option value="morning" {% if default_time_bucket=='morning' %}selected{% endif %}>Morning
+                    (5am–12pm)</option>
+                <option value="afternoon" {% if default_time_bucket=='afternoon' %}selected{% endif %}>
+                    Afternoon (12pm–5pm)</option>
+                <option value="night" {% if default_time_bucket=='night' %}selected{% endif %}>Night (5pm–5am)
+                </option>
+            </select>
+        </label>
+
+        <label>
+            Amount (mg)
+            <input type="number" name="amount_mg" min="1" step="1" placeholder="e.g. 95" required />
+        </label>
+
+        <label>
+            Source
+            <input type="text" name="source" placeholder="coffee, espresso, tea..." />
+        </label>
+
+        <label>
+            Notes
+            <textarea name="notes" rows="3"></textarea>
+        </label>
+
+        <button type="submit">Log caffeine</button>
+    </form>
+</section>
+
+{% include "partials/caffeine_recent_list.html" %}
+{% endblock %}

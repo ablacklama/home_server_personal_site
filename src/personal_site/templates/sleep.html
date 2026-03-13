@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="subnav">
+    <a href="{{ url_for('sleep.index') }}">Sleep</a>
+</div>
+
+<h1>Sleep tracker</h1>
+<p>Log sleep duration and quality.</p>
+
+<div id="sleep-error">
+    {% include "partials/sleep_error.html" %}
+</div>
+
+<section class="card">
+    <h2>Log sleep</h2>
+    <form method="post" action="{{ url_for('sleep.create_entry') }}"
+        hx-post="{{ url_for('sleep.create_entry') }}"
+        hx-target="#sleep-error"
+        hx-swap="innerHTML"
+        id="log-sleep-form">
+        <label>
+            Date
+            <input type="date" name="slept_on" value="{{ default_slept_on }}" />
+        </label>
+
+        <label>
+            Duration
+            <div class="metric-row">
+                <input type="number" name="duration_hours" min="0" step="1" placeholder="hours" />
+                <input type="number" name="duration_minutes" min="0" max="59" step="1" placeholder="minutes" />
+            </div>
+        </label>
+
+        <label>
+            Quality (1-5)
+            <input type="number" name="quality" min="1" max="5" step="1" placeholder="optional" />
+        </label>
+
+        <label>
+            Notes
+            <textarea name="notes" rows="3"></textarea>
+        </label>
+
+        <button type="submit">Log sleep</button>
+    </form>
+</section>
+
+{% include "partials/sleep_recent_list.html" %}
+{% endblock %}

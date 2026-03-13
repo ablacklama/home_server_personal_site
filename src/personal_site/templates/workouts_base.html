@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="subnav">
+    <a href="{{ url_for('workouts.index') }}">Dashboard</a>
+    <a href="{{ url_for('workouts.type_new') }}">Add workout type</a>
+</div>
+
+{% block workouts_content %}{% endblock %}
+{% endblock %}

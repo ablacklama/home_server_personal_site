@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en" data-theme="ember">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>{% if title %}{{ title }} · {% endif %}Personal Site</title>
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}" />
+  <script defer src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <script defer src="{{ url_for('static', filename='js/site.js') }}"></script>
+</head>
+
+<body>
+  <header class="site-header">
+    <nav class="nav">
+      <a class="brand" href="{{ url_for('index') }}">Personal Site</a>
+      <a class="nav-link" href="{{ url_for('workouts.index') }}">Workouts</a>
+      <a class="nav-link" href="{{ url_for('sleep.index') }}">Sleep</a>
+      <a class="nav-link" href="{{ url_for('caffeine.index') }}">Caffeine</a>
+      <div class="nav__actions">
+        <label class="theme-switch">
+          <span class="theme-switch__label">Theme</span>
+          <select data-theme-switcher>
+            <option value="ember">Ember</option>
+            <option value="sage">Sage</option>
+            <option value="wave">Wave</option>
+          </select>
+        </label>
+      </div>
+    </nav>
+  </header>
+
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <small>Hosted on my home server.</small>
+    </div>
+  </footer>
+</body>
+
+</html>

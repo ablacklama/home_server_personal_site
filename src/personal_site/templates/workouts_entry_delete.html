@@ -1,0 +1,20 @@
+{% extends "workouts_base.html" %}
+
+{% block workouts_content %}
+<h1>Delete workout</h1>
+<p>This will permanently delete this workout entry.</p>
+
+<section class="card" role="alert">
+    <strong>Warning:</strong> This cannot be undone.
+</section>
+
+<section class="card">
+    <h2>Confirm</h2>
+    <p><strong>{{ type_name }}</strong> · {{ performed_on }} · {{ time_bucket }}</p>
+
+    <form method="post" action="{{ url_for('workouts.entry_delete', entry_id=entry_id) }}">
+        <button type="submit">Delete workout</button>
+        <a href="{{ url_for('workouts.index') }}">Cancel</a>
+    </form>
+</section>
+{% endblock %}

@@ -1,0 +1,143 @@
+{% extends "workouts_base.html" %}
+
+{% block workouts_content %}
+<h1>Workout tracker</h1>
+<p>Log workouts and review recent activity.</p>
+
+<div id="workouts-error">
+    {% include "partials/workouts_error.html" %}
+</div>
+
+<section class="card">
+    <h2>Log workout</h2>
+    <form method="post" action="{{ url_for('workouts.create_entry') }}"
+        hx-post="{{ url_for('workouts.create_entry') }}"
+        hx-target="#workouts-error"
+        hx-swap="innerHTML"
+        id="log-workout-form">
+        <label>
+            Workout type
+            <select name="workout_type_id" id="workout-type-select" required>
+                <option value="" selected disabled>Choose…</option>
+                {% for t in workout_types %}
+                <option value="{{ t.id }}" data-schema='{{ t.metric_schema | tojson }}'>
+                    {{ t.name }}
+                </option>
+                {% endfor %}
+            </select>
+        </label>
+
+        <label>
+            Day
+            <input type="date" name="performed_on" value="{{ default_performed_on }}" />
+        </label>
+
+        <label>
+            Time
+            <select name="time_bucket">
+                <option value="morning" {% if default_time_bucket=='morning' %}selected{% endif %}>Morning
+                    (5am–12pm)</option>
+                <option value="afternoon" {% if default_time_bucket=='afternoon' %}selected{% endif %}>
+                    Afternoon (12pm–5pm)</option>
+                <option value="night" {% if default_time_bucket=='night' %}selected{% endif %}>Night (5pm–5am)
+                </option>
+            </select>
+        </label>
+
+        <div id="metrics-container"></div>
+
+        <label>
+            Notes
+            <textarea name="notes" rows="3"></textarea>
+        </label>
+
+        <button type="submit">Log workout</button>
+    </form>
+</section>
+
+{% include "partials/workouts_recent_list.html" %}
+
+<script>
+    (function () {
+        const select = document.getElementById("workout-type-select");
+        const metricsContainer = document.getElementById("metrics-container");
+
+        function clearMetrics() {
+            metricsContainer.innerHTML = "";
+        }
+
+        function addMetricInput(metric) {
+            const key = (metric && metric.key) ? String(metric.key) : "";
+            if (!key) return;
+
+            const type = (metric && metric.type) ? String(metric.type).toLowerCase() : "string";
+
+            const label = document.createElement("label");
+            label.textContent = key;
+
+            if (type === "hours_minutes") {
+                const row = document.createElement("div");
+                row.className = "metric-row";
+
+                const h = document.createElement("input");
+                h.name = `metric__${key}__hours`;
+                h.type = "number";
+                h.min = "0";
+                h.step = "1";
+                h.placeholder = "hours";
+
+                const m = document.createElement("input");
+                m.name = `metric__${key}__minutes`;
+                m.type = "number";
+                m.min = "0";
+                m.max = "59";
+                m.step = "1";
+                m.placeholder = "minutes";
+
+                row.appendChild(h);
+                row.appendChild(m);
+                label.appendChild(row);
+            } else {
+                const input = document.createElement("input");
+                input.name = `metric__${key}`;
+                input.autocomplete = "off";
+                if (type === "integer") {
+                    input.type = "number";
+                    input.step = "1";
+                } else {
+                    input.type = "text";
+                }
+                label.appendChild(input);
+            }
+            metricsContainer.appendChild(label);
+        }
+
+        function renderForSelection() {
+            clearMetrics();
+            const opt = select.options[select.selectedIndex];
+            if (!opt) return;
+            const raw = opt.getAttribute("data-schema");
+            if (!raw) return;
+
+            let schema;
+            try {
+                schema = JSON.parse(raw);
+            } catch {
+                return;
+            }
+            if (!Array.isArray(schema)) return;
+            schema.forEach(addMetricInput);
+        }
+
+        select.addEventListener("change", renderForSelection);
+
+        window.workoutEntryForm = {
+            reset: function () {
+                if (!metricsContainer || !select) return;
+                select.selectedIndex = 0;
+                clearMetrics();
+            }
+        };
+    })();
+</script>
+{% endblock %}

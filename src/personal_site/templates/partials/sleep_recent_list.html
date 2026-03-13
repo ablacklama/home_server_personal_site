@@ -1,0 +1,37 @@
+<section class="card" id="sleep-recent" {% if oob %}hx-swap-oob="true"{% endif %}>
+    <h2>Recent sleep</h2>
+    {% if recent_sleep %}
+    <div class="workout-list">
+        {% for s in recent_sleep %}
+        <div class="workout-card">
+            <div class="workout-card__header">
+                <div class="workout-card__title">{{ s.slept_on }}</div>
+                <div class="workout-card__meta">
+                    {{ s.duration_hours }}h {{ s.duration_minutes }}m
+                    {% if s.quality %}
+                    · quality {{ s.quality }}/5
+                    {% endif %}
+                    {% if s.entry_id %}
+                    ·
+                    <form method="post" action="{{ url_for('sleep.delete_entry', entry_id=s.entry_id) }}"
+                        hx-post="{{ url_for('sleep.delete_entry', entry_id=s.entry_id) }}"
+                        hx-target="#sleep-error"
+                        hx-swap="innerHTML"
+                        hx-confirm="Delete this sleep entry?"
+                        style="display:inline">
+                        <button type="submit">Delete</button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if s.notes %}
+            <div class="workout-card__notes">{{ s.notes }}</div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p>No sleep logged yet.</p>
+    {% endif %}
+</section>

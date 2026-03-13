@@ -1,0 +1,61 @@
+(() => {
+  const storageKey = "personal_site_theme";
+  const select = document.querySelector("[data-theme-switcher]");
+  const available = select ? Array.from(select.options).map((opt) => opt.value) : [];
+
+  function applyTheme(value) {
+    if (!value) return;
+    document.documentElement.dataset.theme = value;
+    if (select) {
+      select.value = value;
+    }
+  }
+
+  const saved = window.localStorage.getItem(storageKey);
+  if (saved && available.includes(saved)) {
+    applyTheme(saved);
+  } else if (select && available.length) {
+    applyTheme(select.value);
+  }
+
+  if (select) {
+    select.addEventListener("change", (event) => {
+      const next = event.target.value;
+      applyTheme(next);
+      window.localStorage.setItem(storageKey, next);
+    });
+  }
+})();
+
+(() => {
+  const entryForm = document.getElementById("log-workout-form");
+  const typeForm = document.getElementById("new-type-form");
+  const sleepForm = document.getElementById("log-sleep-form");
+  const caffeineForm = document.getElementById("log-caffeine-form");
+
+  document.body.addEventListener("workoutEntrySaved", () => {
+    if (!entryForm) return;
+    entryForm.reset();
+    if (window.workoutEntryForm && typeof window.workoutEntryForm.reset === "function") {
+      window.workoutEntryForm.reset();
+    }
+  });
+
+  document.body.addEventListener("workoutTypeSaved", () => {
+    if (!typeForm) return;
+    typeForm.reset();
+    if (window.workoutsTypeEditor && typeof window.workoutsTypeEditor.reset === "function") {
+      window.workoutsTypeEditor.reset();
+    }
+  });
+
+  document.body.addEventListener("sleepEntrySaved", () => {
+    if (!sleepForm) return;
+    sleepForm.reset();
+  });
+
+  document.body.addEventListener("caffeineEntrySaved", () => {
+    if (!caffeineForm) return;
+    caffeineForm.reset();
+  });
+})();

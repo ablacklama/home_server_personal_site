@@ -1,0 +1,118 @@
+{% extends "workouts_base.html" %}
+
+{% block workouts_content %}
+<h1>Add workout type</h1>
+<p>Create a workout type and define the metrics you want to track.</p>
+
+<div id="types-error">
+    {% include "partials/workouts_error.html" %}
+</div>
+
+<section class="card">
+    <h2>New type</h2>
+    <form method="post" action="{{ url_for('workouts.create_type') }}"
+        hx-post="{{ url_for('workouts.create_type') }}"
+        hx-target="#types-error"
+        hx-swap="innerHTML"
+        id="new-type-form">
+        <label>
+            Name
+            <input name="name" required />
+        </label>
+
+        <h3>Metrics</h3>
+        <p class="muted">Supported types: string, integer, hours/minutes. Defaults: for hours/minutes use H:MM
+            (e.g. 1:30).</p>
+
+        <div id="metrics-editor"></div>
+
+        <button type="button" id="add-metric">Add metric</button>
+        <button type="submit">Create type</button>
+    </form>
+</section>
+
+{% include "partials/workouts_types_list.html" %}
+
+<script>
+    (function () {
+        const editor = document.getElementById("metrics-editor");
+        const addBtn = document.getElementById("add-metric");
+
+        function addRow(keyValue = "", typeValue = "string", requiredValue = "0", defaultValue = "") {
+            const row = document.createElement("div");
+            row.className = "metric-editor-row";
+
+            const key = document.createElement("input");
+            key.name = "metric_key";
+            key.placeholder = "metric key (e.g. minutes)";
+            key.value = keyValue;
+
+            const type = document.createElement("select");
+            type.name = "metric_type";
+
+            const opts = [
+                ["string", "String"],
+                ["integer", "Integer"],
+                ["hours_minutes", "Hours/Minutes"],
+            ];
+            opts.forEach(([val, label]) => {
+                const o = document.createElement("option");
+                o.value = val;
+                o.textContent = label;
+                if (val === typeValue) o.selected = true;
+                type.appendChild(o);
+            });
+
+            const required = document.createElement("select");
+            required.name = "metric_required";
+
+            const reqOpts = [
+                ["0", "Optional"],
+                ["1", "Required"],
+            ];
+            reqOpts.forEach(([val, label]) => {
+                const o = document.createElement("option");
+                o.value = val;
+                o.textContent = label;
+                if (val === String(requiredValue)) o.selected = true;
+                required.appendChild(o);
+            });
+
+            const def = document.createElement("input");
+            def.name = "metric_default";
+            def.placeholder = "default (optional)";
+            def.value = defaultValue;
+
+            const remove = document.createElement("button");
+            remove.type = "button";
+            remove.textContent = "Remove";
+            remove.addEventListener("click", () => row.remove());
+
+            row.appendChild(key);
+            row.appendChild(type);
+            row.appendChild(required);
+            row.appendChild(def);
+            row.appendChild(remove);
+            editor.appendChild(row);
+        }
+
+        addBtn.addEventListener("click", () => addRow());
+
+        // Start with a couple rows to make the UI obvious.
+        function seedRows() {
+            addRow("minutes", "integer", "0", "");
+            addRow("notes", "string", "0", "");
+        }
+
+        seedRows();
+
+        window.workoutsTypeEditor = {
+            reset: function () {
+                if (!editor) return;
+                editor.innerHTML = "";
+                seedRows();
+            }
+        };
+    })();
+</script>
+{% endblock %}

@@ -1,0 +1,29 @@
+[project]
+name = "personal-site"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "ablacklama", email = "spencerwellskelly@gmail.com" }
+]
+requires-python = ">=3.10"
+dependencies = [
+    "flask>=3.1.2",
+    "openai>=2.17.0",
+    "python-dotenv>=1.2.1",
+    "requests>=2.32.5",
+    "sqlalchemy>=2.0.43"
+]
+
+[project.scripts]
+personal-site = "personal_site:main"
+
+[build-system]
+requires = [ "uv_build>=0.8.3,<0.9.0" ]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.3",
+    "ruff>=0.14.14"
+]

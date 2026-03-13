@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="hero">
+    <div>
+      <p class="eyebrow">Personal lab space</p>
+      <h1>Hey, I’m Spencer.</h1>
+      <p class="hero__lede">
+        This is my home-server site for experiments, data capture, and fast feedback.
+      </p>
+      <div class="hero__actions">
+        <a class="button" href="{{ url_for('workouts.index') }}">Open workout tracker</a>
+        <a class="button button--ghost" href="{{ url_for('index') }}#status">Health check</a>
+      </div>
+    </div>
+    <div class="hero__panel">
+      <div class="stat">
+        <div class="stat__label">Stack</div>
+        <div class="stat__value">Flask · HTMX · SQLite</div>
+      </div>
+      <div class="stat">
+        <div class="stat__label">Goal</div>
+        <div class="stat__value">Fast, live data entry</div>
+      </div>
+      <div class="stat">
+        <div class="stat__label">Host</div>
+        <div class="stat__value">Home server</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card split" id="status">
+    <div>
+      <h2>Status</h2>
+      <p>Try <code>/healthz</code> for a simple JSON health check.</p>
+    </div>
+    <div class="status-pill">
+      <span class="dot"></span>
+      Ready for requests
+    </div>
+  </section>
+{% endblock %}

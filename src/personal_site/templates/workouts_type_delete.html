@@ -1,0 +1,21 @@
+{% extends "workouts_base.html" %}
+
+{% block workouts_content %}
+<h1>Delete workout type</h1>
+<p>This will permanently delete the workout type.</p>
+
+<section class="card" role="alert">
+    <strong>Warning:</strong>
+    Deleting <strong>{{ type_name }}</strong> will also delete {{ entry_count }} logged workout{{ '' if
+    entry_count == 1 else 's' }} of this type.
+    This cannot be undone.
+</section>
+
+<section class="card">
+    <h2>Confirm</h2>
+    <form method="post" action="{{ url_for('workouts.type_delete', type_id=type_id) }}">
+        <button type="submit">Delete type</button>
+        <a href="{{ url_for('workouts.type_new') }}">Cancel</a>
+    </form>
+</section>
+{% endblock %}
