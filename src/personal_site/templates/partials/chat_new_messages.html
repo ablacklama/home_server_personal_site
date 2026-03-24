@@ -1,0 +1,6 @@
+{% for msg in messages %}
+{% set kind = msg.meta.get('kind', '') if msg.meta else '' %}
+<div class="chat-bubble chat-bubble--{{ msg.role }}{% if kind == 'status' %} chat-bubble--status{% endif %}{% if kind == 'error' %} chat-bubble--error{% endif %}" data-msg-id="{{ msg.id }}" data-msg-kind="{{ kind }}">
+    <div class="chat-bubble__content">{% if kind == 'status' %}<span class="typing-dots"><span></span><span></span><span></span></span> {{ msg.content }}{% elif kind == 'error' %}{{ msg.content }}{% else %}{{ msg.content | markdown | safe }}{% endif %}</div>
+</div>
+{% endfor %}

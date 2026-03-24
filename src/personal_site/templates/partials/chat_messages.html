@@ -1,0 +1,5 @@
+{% for msg in messages %}
+<div class="chat-bubble chat-bubble--{{ msg.role }}" data-msg-id="{{ msg.id }}">
+    <div class="chat-bubble__content">{{ msg.content }}</div>
+</div>
+{% endfor %}

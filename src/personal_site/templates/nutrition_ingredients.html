@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="subnav">
+    <a href="{{ url_for('nutrition.index') }}">Log</a>
+    <a href="{{ url_for('nutrition.ingredients_index') }}">Ingredients</a>
+    <a href="{{ url_for('nutrition.meals_index') }}">Meals</a>
+</div>
+
+<h1>Ingredients</h1>
+<p>Build your ingredient library. All nutritional values are per serving.</p>
+
+<div id="ingredients-error">
+    {% include "partials/nutrition_error.html" %}
+</div>
+
+<section class="card">
+    <h2>Add ingredient</h2>
+    <form method="post" action="{{ url_for('nutrition.create_ingredient') }}"
+        hx-post="{{ url_for('nutrition.create_ingredient') }}"
+        hx-target="#ingredients-error"
+        hx-swap="innerHTML"
+        id="add-ingredient-form">
+
+        <label>
+            Name
+            <input type="text" name="name" required placeholder="e.g. Chicken breast" />
+        </label>
+
+        <label>
+            Serving size
+            <input type="text" name="serving_size" placeholder="e.g. 100g, 1 cup" />
+        </label>
+
+        <div class="form-grid">
+            <label>
+                Calories
+                <input type="number" name="calories" min="0" step="0.1" />
+            </label>
+            <label>
+                Protein (g)
+                <input type="number" name="protein_g" min="0" step="0.1" />
+            </label>
+            <label>
+                Carbs (g)
+                <input type="number" name="carbs_g" min="0" step="0.1" />
+            </label>
+            <label>
+                Fat (g)
+                <input type="number" name="fat_g" min="0" step="0.1" />
+            </label>
+            <label>
+                Fiber (g)
+                <input type="number" name="fiber_g" min="0" step="0.1" />
+            </label>
+            <label>
+                Sugar (g)
+                <input type="number" name="sugar_g" min="0" step="0.1" />
+            </label>
+            <label>
+                Caffeine (mg)
+                <input type="number" name="caffeine_mg" min="0" step="0.1" />
+            </label>
+        </div>
+
+        <button type="submit">Save ingredient</button>
+    </form>
+</section>
+
+{% if has_missing_info %}
+<section class="card">
+    <div class="split">
+        <div>
+            <strong>Some ingredients have missing nutrition info.</strong>
+            <p class="muted" style="margin:4px 0 0">Use AI to look up and fill in the gaps.</p>
+        </div>
+        <form method="post" action="{{ url_for('nutrition.fill_missing') }}"
+            hx-post="{{ url_for('nutrition.fill_missing') }}"
+            hx-target="#ingredients-error"
+            hx-swap="innerHTML"
+            hx-indicator="#fill-spinner">
+            <button type="submit" id="fill-btn">Fill missing info</button>
+        </form>
+    </div>
+    <span class="htmx-indicator" id="fill-spinner" style="color:var(--muted);font-size:0.85rem;">Looking up nutrition facts…</span>
+</section>
+{% endif %}
+
+{% include "partials/nutrition_ingredients_list.html" %}
+{% endblock %}

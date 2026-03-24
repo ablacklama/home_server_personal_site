@@ -1,0 +1,160 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <!-- Neon pink glow -->
+    <filter id="glowPink" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur1"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="blur2"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="20" result="blur3"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="35" result="blur4"/>
+      <feMerge>
+        <feMergeNode in="blur4"/>
+        <feMergeNode in="blur3"/>
+        <feMergeNode in="blur2"/>
+        <feMergeNode in="blur1"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <!-- Neon blue glow -->
+    <filter id="glowBlue" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3.5" result="blur1"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur2"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="18" result="blur3"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="30" result="blur4"/>
+      <feMerge>
+        <feMergeNode in="blur4"/>
+        <feMergeNode in="blur3"/>
+        <feMergeNode in="blur2"/>
+        <feMergeNode in="blur1"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <!-- Soft combined glow for subtle elements -->
+    <filter id="glowSoft" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur1"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="14" result="blur2"/>
+      <feMerge>
+        <feMergeNode in="blur2"/>
+        <feMergeNode in="blur1"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <!-- Background radial gradient -->
+    <radialGradient id="bgGlow" cx="50%" cy="48%" r="55%">
+      <stop offset="0%" stop-color="#141432" />
+      <stop offset="60%" stop-color="#0e0e24" />
+      <stop offset="100%" stop-color="#0a0a1a" />
+    </radialGradient>
+    <!-- Gradient for the pulse line -->
+    <linearGradient id="pulseGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00d4ff" />
+      <stop offset="35%" stop-color="#ff2d95" />
+      <stop offset="100%" stop-color="#ff2d95" />
+    </linearGradient>
+  </defs>
+
+  <!-- Dark rounded background -->
+  <rect x="0" y="0" width="512" height="512" rx="102" ry="102" fill="url(#bgGlow)" />
+
+  <!-- Very subtle grid lines for cyberpunk depth -->
+  <g opacity="0.08" stroke="#00d4ff" stroke-width="0.5">
+    <line x1="128" y1="60" x2="128" y2="452"/>
+    <line x1="256" y1="60" x2="256" y2="452"/>
+    <line x1="384" y1="60" x2="384" y2="452"/>
+    <line x1="60" y1="170" x2="452" y2="170"/>
+    <line x1="60" y1="256" x2="452" y2="256"/>
+    <line x1="60" y1="342" x2="452" y2="342"/>
+  </g>
+
+  <!-- Background ghost pulse (blue, very faint) -->
+  <polyline
+    points="56,268 112,268 140,268 164,216 184,316 212,148 240,372 264,108 288,268 320,268 352,268"
+    fill="none"
+    stroke="#00d4ff"
+    stroke-width="4"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    opacity="0.1"
+    filter="url(#glowBlue)"
+  />
+
+  <!-- Main pulse/heartbeat line - the hero element -->
+  <polyline
+    points="56,268 112,268 140,268 164,216 184,316 212,148 240,372 264,108 288,268 320,268 352,268"
+    fill="none"
+    stroke="#ff2d95"
+    stroke-width="12"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    filter="url(#glowPink)"
+  />
+
+  <!-- Blue chromatic aberration offset line -->
+  <polyline
+    points="56,268 112,268 140,268 164,216 184,316 212,148 240,372 264,108 288,268 320,268 352,268"
+    fill="none"
+    stroke="#00d4ff"
+    stroke-width="5"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    opacity="0.45"
+    transform="translate(5, -8)"
+    filter="url(#glowBlue)"
+  />
+
+  <!-- Bright white core on the main line for intensity -->
+  <polyline
+    points="56,268 112,268 140,268 164,216 184,316 212,148 240,372 264,108 288,268 320,268 352,268"
+    fill="none"
+    stroke="white"
+    stroke-width="2.5"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    opacity="0.3"
+  />
+
+  <!-- Lightning bolt accent -->
+  <polygon
+    points="362,178 328,260 352,260 316,354 396,244 368,244 396,178"
+    fill="none"
+    stroke="#00d4ff"
+    stroke-width="6"
+    stroke-linejoin="round"
+    stroke-linecap="round"
+    filter="url(#glowBlue)"
+  />
+  <polygon
+    points="362,178 328,260 352,260 316,354 396,244 368,244 396,178"
+    fill="#00d4ff"
+    opacity="0.08"
+  />
+  <!-- White core on lightning bolt -->
+  <polygon
+    points="362,178 328,260 352,260 316,354 396,244 368,244 396,178"
+    fill="none"
+    stroke="white"
+    stroke-width="1.5"
+    stroke-linejoin="round"
+    stroke-linecap="round"
+    opacity="0.15"
+  />
+
+  <!-- Dot accents at key points -->
+  <circle cx="56" cy="268" r="8" fill="#ff2d95" filter="url(#glowPink)" />
+  <circle cx="352" cy="268" r="8" fill="#ff2d95" filter="url(#glowPink)" />
+  <circle cx="264" cy="108" r="10" fill="#00d4ff" filter="url(#glowBlue)" />
+  <circle cx="264" cy="108" r="4" fill="white" opacity="0.5" />
+
+  <!-- Small decorative dots -->
+  <circle cx="240" cy="372" r="5" fill="#ff2d95" opacity="0.6" filter="url(#glowSoft)" />
+  <circle cx="212" cy="148" r="5" fill="#00d4ff" opacity="0.5" filter="url(#glowSoft)" />
+
+  <!-- Outer border glow -->
+  <rect x="4" y="4" width="504" height="504" rx="100" ry="100"
+    fill="none" stroke="#ff2d95" stroke-width="2" opacity="0.2" />
+  <rect x="4" y="4" width="504" height="504" rx="100" ry="100"
+    fill="none" stroke="#00d4ff" stroke-width="1" opacity="0.12" />
+
+  <!-- Inner subtle border -->
+  <rect x="12" y="12" width="488" height="488" rx="94" ry="94"
+    fill="none" stroke="#ff2d95" stroke-width="0.5" opacity="0.08" />
+</svg>

@@ -58,4 +58,53 @@
     if (!caffeineForm) return;
     caffeineForm.reset();
   });
+
+  const nutritionForm = document.getElementById("log-nutrition-form");
+  const ingredientForm = document.getElementById("add-ingredient-form");
+  const mealForm = document.getElementById("create-meal-form");
+
+  document.body.addEventListener("nutritionLogSaved", () => {
+    if (!nutritionForm) return;
+    nutritionForm.reset();
+    if (window.nutritionLogForm && typeof window.nutritionLogForm.reset === "function") {
+      window.nutritionLogForm.reset();
+    }
+  });
+
+  document.body.addEventListener("ingredientSaved", () => {
+    if (!ingredientForm) return;
+    ingredientForm.reset();
+  });
+
+  document.body.addEventListener("mealSaved", () => {
+    if (!mealForm) return;
+    mealForm.reset();
+    if (window.mealForm && typeof window.mealForm.reset === "function") {
+      window.mealForm.reset();
+    }
+  });
 })();
+
+// Hamburger menu toggle
+(() => {
+  const btn = document.querySelector(".nav-toggle");
+  const links = document.querySelector(".nav-links");
+  if (btn && links) {
+    btn.addEventListener("click", () => {
+      const open = links.classList.toggle("open");
+      btn.setAttribute("aria-expanded", open);
+    });
+    // Close menu when a link is clicked
+    links.querySelectorAll(".nav-link").forEach((link) => {
+      link.addEventListener("click", () => {
+        links.classList.remove("open");
+        btn.setAttribute("aria-expanded", "false");
+      });
+    });
+  }
+})();
+
+// Service worker registration
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/static/sw.js");
+}

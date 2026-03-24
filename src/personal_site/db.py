@@ -45,3 +45,52 @@ def ensure_sqlite_workouts_schema(engine) -> None:
             conn.execute(
                 text("ALTER TABLE workout_entries ADD COLUMN time_bucket VARCHAR(16)")
             )
+
+
+def ensure_sqlite_chat_schema(engine) -> None:
+    if getattr(engine.dialect, "name", None) != "sqlite":
+        return
+
+    with engine.begin() as conn:
+        # ai_messages: add conversation_id if missing
+        result = conn.execute(text("PRAGMA table_info(ai_messages)"))
+        existing = {row[1] for row in result}
+
+        if "conversation_id" not in existing:
+            conn.execute(
+                text(
+                    "ALTER TABLE ai_messages ADD COLUMN conversation_id VARCHAR(36)"
+                    " REFERENCES chat_conversations(id)"
+                )
+            )
+
+        # Make topic nullable (was NOT NULL before).
+        # SQLite doesn't support ALTER COLUMN, so we recreate the table.
+        result2 = conn.execute(text("PRAGMA table_info(ai_messages)"))
+        col_info = {row[1]: row for row in result2}
+        topic_col = col_info.get("topic")
+        # row format: (cid, name, type, notnull, dflt_value, pk)
+        if topic_col and topic_col[3] == 1:  # notnull == 1
+            conn.execute(
+                text(
+                    "CREATE TABLE ai_messages_new ("
+                    "  id VARCHAR(36) PRIMARY KEY,"
+                    "  topic VARCHAR(160),"
+                    "  conversation_id VARCHAR(36) REFERENCES chat_conversations(id),"
+                    "  role VARCHAR(16) NOT NULL,"
+                    "  content TEXT NOT NULL,"
+                    "  ntfy_id VARCHAR(80),"
+                    "  meta JSON NOT NULL DEFAULT '{}',"
+                    "  created_at DATETIME NOT NULL"
+                    ")"
+                )
+            )
+            conn.execute(
+                text(
+                    "INSERT INTO ai_messages_new"
+                    " SELECT id, topic, conversation_id, role, content,"
+                    " ntfy_id, meta, created_at FROM ai_messages"
+                )
+            )
+            conn.execute(text("DROP TABLE ai_messages"))
+            conn.execute(text("ALTER TABLE ai_messages_new RENAME TO ai_messages"))

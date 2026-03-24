@@ -1,0 +1,38 @@
+<section class="card" id="meals-list" {% if oob %}hx-swap-oob="true"{% endif %}>
+    <h2>Saved meals</h2>
+    {% if meals %}
+    <div class="workout-list">
+        {% for meal in meals %}
+        <div class="workout-card">
+            <div class="workout-card__header">
+                <div class="workout-card__title">{{ meal.name }}</div>
+                <div class="workout-card__meta">
+                    <a href="{{ url_for('nutrition.edit_meal_form', meal_id=meal.id) }}">Edit</a>
+                    <form method="post" action="{{ url_for('nutrition.delete_meal', meal_id=meal.id) }}"
+                        hx-post="{{ url_for('nutrition.delete_meal', meal_id=meal.id) }}"
+                        hx-target="#meals-error"
+                        hx-swap="innerHTML"
+                        hx-confirm="Delete {{ meal.name }}?"
+                        style="display:inline">
+                        <button type="submit">Delete</button>
+                    </form>
+                </div>
+            </div>
+            <dl class="metrics">
+                {% for mi in meal.ingredients %}
+                <div class="metric-row">
+                    <dt>{{ mi.ingredient.name }}</dt>
+                    <dd>{{ mi.servings }} serving{{ 's' if mi.servings != 1 }}</dd>
+                </div>
+                {% endfor %}
+            </dl>
+            {% if meal.notes %}
+            <div class="workout-card__notes">{{ meal.notes }}</div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p>No meals saved yet. Create one above.</p>
+    {% endif %}
+</section>

@@ -33,14 +33,14 @@ class Settings:
     inactivity_cooldown_seconds: int
 
     ai_enabled: bool
-    openai_api_key: str | None
-    openai_model: str
+    anthropic_api_key: str | None
+    anthropic_model: str
     ai_debug_log: bool
 
 
 def get_settings() -> Settings:
     host = os.getenv("HOST", "0.0.0.0")
-    port = int(os.getenv("PORT", "8000"))
+    port = int(os.getenv("PORT", "8743"))
     debug = _env_bool("DEBUG", False)
 
     database_url = os.getenv(
@@ -61,8 +61,10 @@ def get_settings() -> Settings:
     inactivity_cooldown_seconds = int(os.getenv("INACTIVITY_COOLDOWN_SECONDS", "21600"))
 
     ai_enabled = _env_bool("AI_ENABLED", False)
-    openai_api_key = os.getenv("OPENAI_API_KEY")
-    openai_model = os.getenv("OPENAI_MODEL", "gpt-5.2").strip() or "gpt-5.2"
+    anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
+    anthropic_model = (
+        os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6").strip() or "claude-sonnet-4-6"
+    )
     ai_debug_log = _env_bool("AI_DEBUG_LOG", False)
 
     return Settings(
@@ -81,7 +83,7 @@ def get_settings() -> Settings:
         inactivity_seconds=inactivity_seconds,
         inactivity_cooldown_seconds=inactivity_cooldown_seconds,
         ai_enabled=ai_enabled,
-        openai_api_key=openai_api_key,
-        openai_model=openai_model,
+        anthropic_api_key=anthropic_api_key,
+        anthropic_model=anthropic_model,
         ai_debug_log=ai_debug_log,
     )

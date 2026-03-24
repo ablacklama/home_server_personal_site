@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="ember">
+<html lang="en" data-theme="midnight">
 
 <head>
   <meta charset="utf-8" />
@@ -8,21 +8,34 @@
   <title>{% if title %}{{ title }} · {% endif %}Personal Site</title>
 
   <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}" />
+  <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}" />
+  <meta name="theme-color" content="#0b0b1a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/icon-192.png') }}" />
   <script defer src="https://unpkg.com/htmx.org@1.9.12"></script>
   <script defer src="{{ url_for('static', filename='js/site.js') }}"></script>
+  {% block head_extra %}{% endblock %}
 </head>
 
 <body>
   <header class="site-header">
     <nav class="nav">
       <a class="brand" href="{{ url_for('index') }}">Personal Site</a>
-      <a class="nav-link" href="{{ url_for('workouts.index') }}">Workouts</a>
-      <a class="nav-link" href="{{ url_for('sleep.index') }}">Sleep</a>
-      <a class="nav-link" href="{{ url_for('caffeine.index') }}">Caffeine</a>
-      <div class="nav__actions">
+      <button class="nav-toggle" aria-label="Menu" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="nav-links">
+        <a class="nav-link" href="{{ url_for('workouts.index') }}">Workouts</a>
+        <a class="nav-link" href="{{ url_for('sleep.index') }}">Sleep</a>
+        <a class="nav-link" href="{{ url_for('nutrition.index') }}">Nutrition</a>
+        <a class="nav-link" href="{{ url_for('chat.index') }}">Chat</a>
+        <a class="nav-link" href="{{ url_for('stats.index') }}">Stats</a>
+        <a class="nav-link" href="{{ url_for('preferences.index') }}">Prefs</a>
         <label class="theme-switch">
           <span class="theme-switch__label">Theme</span>
           <select data-theme-switcher>
+            <option value="midnight">Midnight</option>
             <option value="ember">Ember</option>
             <option value="sage">Sage</option>
             <option value="wave">Wave</option>

@@ -1,5 +1,4 @@
 import datetime as dt
-import json
 
 import pytest
 
@@ -11,25 +10,32 @@ from personal_site.notify import NtfyConfig
 from personal_site.sleep_models import SleepEntry
 
 
-class _FakeToolCall:
-    def __init__(self, name: str, arguments: dict):
-        self.type = "function_call"
+class _FakeToolUseBlock:
+    def __init__(self, name: str, input_data: dict):
+        self.type = "tool_use"
+        self.id = "toolu_test"
         self.name = name
-        self.arguments = json.dumps(arguments)
+        self.input = input_data
 
 
 class _FakeResponse:
-    def __init__(self, tool_call: _FakeToolCall):
-        self.output = [tool_call]
+    def __init__(self, tool_block: _FakeToolUseBlock):
+        self.content = [tool_block]
+        self.stop_reason = "tool_use"
 
 
-class _FakeOpenAI:
-    def __init__(self, api_key=None):
-        self.api_key = api_key
-        self.responses = self
+class _FakeMessages:
+    def __init__(self):
+        self._response = None
 
     def create(self, **kwargs):
         return self._response
+
+
+class _FakeAnthropic:
+    def __init__(self, api_key=None):
+        self.api_key = api_key
+        self.messages = _FakeMessages()
 
 
 @pytest.fixture()
@@ -41,7 +47,9 @@ def session():
 
 
 def _make_ai_cfg():
-    return AiConfig(enabled=True, model="gpt-test", api_key="test-key", debug_log=False)
+    return AiConfig(
+        enabled=True, model="claude-test", api_key="test-key", debug_log=False
+    )
 
 
 def _make_ntfy_cfg():
@@ -49,9 +57,9 @@ def _make_ntfy_cfg():
 
 
 def test_sleep_message_logs_entry(monkeypatch, session):
-    fake_client = _FakeOpenAI()
-    fake_client._response = _FakeResponse(
-        _FakeToolCall(
+    fake_client = _FakeAnthropic()
+    fake_client.messages._response = _FakeResponse(
+        _FakeToolUseBlock(
             "log_sleep",
             {
                 "slept_on": None,
@@ -63,7 +71,7 @@ def test_sleep_message_logs_entry(monkeypatch, session):
         )
     )
 
-    monkeypatch.setattr("personal_site.ai.OpenAI", lambda api_key=None: fake_client)
+    monkeypatch.setattr("personal_site.ai.Anthropic", lambda api_key=None: fake_client)
     monkeypatch.setattr("personal_site.ai.send_ntfy", lambda **kwargs: "msg-id")
 
     result = handle_ntfy_message(
@@ -88,9 +96,9 @@ def test_sleep_message_logs_entry(monkeypatch, session):
 
 
 def test_caffeine_message_logs_entry(monkeypatch, session):
-    fake_client = _FakeOpenAI()
-    fake_client._response = _FakeResponse(
-        _FakeToolCall(
+    fake_client = _FakeAnthropic()
+    fake_client.messages._response = _FakeResponse(
+        _FakeToolUseBlock(
             "log_caffeine",
             {
                 "consumed_on": None,
@@ -102,7 +110,7 @@ def test_caffeine_message_logs_entry(monkeypatch, session):
         )
     )
 
-    monkeypatch.setattr("personal_site.ai.OpenAI", lambda api_key=None: fake_client)
+    monkeypatch.setattr("personal_site.ai.Anthropic", lambda api_key=None: fake_client)
     monkeypatch.setattr("personal_site.ai.send_ntfy", lambda **kwargs: "msg-id")
 
     result = handle_ntfy_message(

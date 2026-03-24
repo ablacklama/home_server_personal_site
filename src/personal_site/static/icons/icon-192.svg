@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
+  <defs>
+    <!-- Neon pink glow -->
+    <filter id="glowPink" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur1"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur2"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="blur3"/>
+      <feMerge>
+        <feMergeNode in="blur3"/>
+        <feMergeNode in="blur2"/>
+        <feMergeNode in="blur1"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <!-- Neon blue glow -->
+    <filter id="glowBlue" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur1"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur2"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="9" result="blur3"/>
+      <feMerge>
+        <feMergeNode in="blur3"/>
+        <feMergeNode in="blur2"/>
+        <feMergeNode in="blur1"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <!-- Subtle ambient glow for the background -->
+    <radialGradient id="bgGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1a1a3a" />
+      <stop offset="100%" stop-color="#0a0a1a" />
+    </radialGradient>
+    <!-- Gradient for the pulse line -->
+    <linearGradient id="pulseGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00d4ff" />
+      <stop offset="40%" stop-color="#ff2d95" />
+      <stop offset="100%" stop-color="#ff2d95" />
+    </linearGradient>
+  </defs>
+
+  <!-- Dark rounded background -->
+  <rect x="0" y="0" width="192" height="192" rx="38" ry="38" fill="url(#bgGlow)" />
+
+  <!-- Subtle grid lines for depth -->
+  <line x1="96" y1="30" x2="96" y2="162" stroke="#1a1a3a" stroke-width="0.5" opacity="0.5"/>
+  <line x1="30" y1="96" x2="162" y2="96" stroke="#1a1a3a" stroke-width="0.5" opacity="0.5"/>
+
+  <!-- Background pulse line (blue, subtle) -->
+  <polyline
+    points="24,96 48,96 56,96 64,72 72,120 80,60 88,132 96,48 104,96 112,96 120,96"
+    fill="none"
+    stroke="#00d4ff"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    opacity="0.15"
+    filter="url(#glowBlue)"
+  />
+
+  <!-- Main pulse/heartbeat line with glow - the hero element -->
+  <!-- Flat line into sharp spike pattern -->
+  <polyline
+    points="22,100 42,100 52,100 60,82 68,118 76,56 88,140 96,42 104,100 118,100 132,100"
+    fill="none"
+    stroke="#ff2d95"
+    stroke-width="4.5"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    filter="url(#glowPink)"
+  />
+
+  <!-- Secondary blue accent line, slightly offset -->
+  <polyline
+    points="22,100 42,100 52,100 60,82 68,118 76,56 88,140 96,42 104,100 118,100 132,100"
+    fill="none"
+    stroke="#00d4ff"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    opacity="0.5"
+    transform="translate(2, -3)"
+    filter="url(#glowBlue)"
+  />
+
+  <!-- Lightning bolt accent in bottom right -->
+  <polygon
+    points="134,68 122,98 132,98 120,132 148,92 136,92 148,68"
+    fill="none"
+    stroke="#00d4ff"
+    stroke-width="2.5"
+    stroke-linejoin="round"
+    filter="url(#glowBlue)"
+  />
+  <polygon
+    points="134,68 122,98 132,98 120,132 148,92 136,92 148,68"
+    fill="#00d4ff"
+    opacity="0.12"
+  />
+
+  <!-- Small dot accents -->
+  <circle cx="22" cy="100" r="3" fill="#ff2d95" filter="url(#glowPink)" />
+  <circle cx="132" cy="100" r="3" fill="#ff2d95" filter="url(#glowPink)" />
+  <circle cx="96" cy="42" r="3.5" fill="#00d4ff" filter="url(#glowBlue)" />
+
+  <!-- Thin border glow -->
+  <rect x="2" y="2" width="188" height="188" rx="36" ry="36"
+    fill="none" stroke="#ff2d95" stroke-width="1" opacity="0.25" />
+  <rect x="2" y="2" width="188" height="188" rx="36" ry="36"
+    fill="none" stroke="#00d4ff" stroke-width="0.5" opacity="0.15" />
+</svg>

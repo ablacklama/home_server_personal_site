@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Chat</h1>
+
+<div class="chat-layout">
+    <aside class="chat-sidebar">
+        <form method="post" action="{{ url_for('chat.create_conversation') }}">
+            <button type="submit" class="button--ghost">+ New chat</button>
+        </form>
+        <div class="chat-conv-list">
+            {% for conv in conversations %}
+            <a href="{{ url_for('chat.conversation', conv_id=conv.id) }}"
+                class="chat-conv-item {% if active_conversation and conv.id == active_conversation.id %}chat-conv-item--active{% endif %}">
+                {{ conv.title or "Untitled" }}
+            </a>
+            {% endfor %}
+        </div>
+    </aside>
+
+    <div class="chat-main">
+        {% if active_conversation %}
+        <div id="chat-messages" class="chat-messages">
+            {% for msg in messages %}
+            {% include "partials/chat_message.html" %}
+            {% endfor %}
+        </div>
+
+        <div id="chat-poll"
+            hx-get="{{ url_for('chat.poll_messages', conv_id=active_conversation.id) }}{% if messages %}?after={{ messages[-1].id }}{% endif %}"
+            hx-trigger="every 2s"
+            hx-target="#chat-messages"
+            hx-swap="beforeend"
+            style="display:none">
+        </div>
+
+        <form class="chat-input"
+            hx-post="{{ url_for('chat.send_message', conv_id=active_conversation.id) }}"
+            hx-target="#chat-messages"
+            hx-swap="beforeend"
+            id="chat-form">
+            <input type="text" name="message" placeholder="Type a message..." autocomplete="off" required />
+            <button type="submit">Send</button>
+        </form>
+        {% else %}
+        <div class="chat-empty">
+            <p>No conversations yet. Start a new chat.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+(function () {
+    const form = document.getElementById("chat-form");
+    const messagesDiv = document.getElementById("chat-messages");
+    const pollDiv = document.getElementById("chat-poll");
+
+    // Track whether user is near the bottom (within 80px)
+    function isNearBottom() {
+        if (!messagesDiv) return true;
+        return messagesDiv.scrollHeight - messagesDiv.scrollTop - messagesDiv.clientHeight < 80;
+    }
+
+    function scrollToBottom() {
+        if (messagesDiv) messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    // Scroll to bottom on initial load
+    scrollToBottom();
+
+    // Deduplicate message bubbles by data-msg-id
+    function dedup() {
+        if (!messagesDiv) return;
+        const seen = new Set();
+        messagesDiv.querySelectorAll("[data-msg-id]").forEach(function (el) {
+            const id = el.getAttribute("data-msg-id");
+            if (seen.has(id)) {
+                el.remove();
+            } else {
+                seen.add(id);
+            }
+        });
+    }
+
+    // Remove old status bubbles when a newer non-status message arrives
+    function cleanStatus() {
+        if (!messagesDiv) return;
+        const bubbles = Array.from(messagesDiv.querySelectorAll("[data-msg-id]"));
+        const hasReal = bubbles.some(function (el) {
+            const k = el.getAttribute("data-msg-kind");
+            return k !== "status" && el.getAttribute("data-msg-id");
+        });
+        // Remove status bubbles once a real assistant message is present after them
+        // Actually, just remove any status bubble if a non-status bubble comes after it
+        let sawReal = false;
+        for (let i = bubbles.length - 1; i >= 0; i--) {
+            var kind = bubbles[i].getAttribute("data-msg-kind");
+            if (kind !== "status") {
+                sawReal = true;
+            } else if (sawReal) {
+                bubbles[i].remove();
+            }
+        }
+    }
+
+    // Show typing indicator immediately after sending
+    function showTyping() {
+        if (!messagesDiv) return;
+        removeTyping();
+        var el = document.createElement("div");
+        el.className = "chat-bubble chat-bubble--assistant chat-bubble--typing";
+        el.id = "chat-typing-indicator";
+        el.innerHTML = '<div class="chat-bubble__content"><span class="typing-dots"><span></span><span></span><span></span></span></div>';
+        messagesDiv.appendChild(el);
+        scrollToBottom();
+    }
+
+    function removeTyping() {
+        var el = document.getElementById("chat-typing-indicator");
+        if (el) el.remove();
+    }
+
+    if (form) {
+        document.body.addEventListener("chatMessageSent", function () {
+            const input = form.querySelector("input[name='message']");
+            if (input) input.value = "";
+            _userSentMessage = true;
+            showTyping();
+        });
+    }
+
+    // After every htmx swap into chat-messages: dedup, clean status, manage typing
+    var _userSentMessage = false;
+
+    document.body.addEventListener("htmx:beforeSwap", function (event) {
+        if (!messagesDiv) return;
+        if (event.detail.target === messagesDiv || messagesDiv.contains(event.detail.target)) {
+            // Snapshot scroll position before DOM changes
+            event.detail._wasNearBottom = isNearBottom() || _userSentMessage;
+        }
+    });
+
+    document.body.addEventListener("htmx:afterSwap", function (event) {
+        if (!messagesDiv) return;
+        if (event.detail.target === messagesDiv || messagesDiv.contains(event.detail.target)) {
+            var shouldScroll = event.detail._wasNearBottom || _userSentMessage;
+            _userSentMessage = false;
+
+            dedup();
+            // Keep only the latest status bubble (remove older ones)
+            var statusBubbles = Array.from(messagesDiv.querySelectorAll("[data-msg-kind='status']"));
+            if (statusBubbles.length > 1) {
+                for (var si = 0; si < statusBubbles.length - 1; si++) {
+                    statusBubbles[si].remove();
+                }
+            }
+            if (statusBubbles.length > 0) {
+                removeTyping();
+            }
+            // If we got a real assistant message, remove typing & old statuses
+            var realAssistant = messagesDiv.querySelectorAll(".chat-bubble--assistant:not([data-msg-kind='status'])");
+            if (realAssistant.length > 0) {
+                removeTyping();
+                cleanStatus();
+            }
+            if (shouldScroll) scrollToBottom();
+        }
+    });
+
+    // Update poll "after" param when new messages arrive
+    if (pollDiv && messagesDiv) {
+        const observer = new MutationObserver(function () {
+            // Use the last non-status message for the poll "after" param
+            // so we keep polling for status updates too
+            const bubbles = messagesDiv.querySelectorAll("[data-msg-id]");
+            if (bubbles.length > 0) {
+                // Find the last real (non-status) message for after param
+                var lastRealId = null;
+                var lastAnyId = null;
+                bubbles.forEach(function (el) {
+                    lastAnyId = el.getAttribute("data-msg-id");
+                    if (el.getAttribute("data-msg-kind") !== "status") {
+                        lastRealId = el.getAttribute("data-msg-id");
+                    }
+                });
+                // Use the last real message ID for after, so status messages
+                // keep getting polled (they have newer timestamps)
+                var afterId = lastRealId || lastAnyId;
+                if (afterId) {
+                    const baseUrl = pollDiv.getAttribute("hx-get").split("?")[0];
+                    pollDiv.setAttribute("hx-get", baseUrl + "?after=" + afterId);
+                    if (window.htmx) htmx.process(pollDiv);
+                }
+            }
+        });
+        observer.observe(messagesDiv, { childList: true });
+    }
+})();
+</script>
+{% endblock %}

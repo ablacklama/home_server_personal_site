@@ -4,7 +4,9 @@ set shell := ["zsh", "-cu"]
 set dotenv-load := true
 
 APP_HOST := "127.0.0.1"
-APP_PORT := "8000"
+APP_PORT := "8743"
+DOCKER_IMAGE := "personal-site"
+DOCKER_CONTAINER := "personal-site"
 
 # choose a task to run
 default:
@@ -49,8 +51,35 @@ clean:
 health:
   curl -fsS http://{{APP_HOST}}:{{APP_PORT}}/healthz
 
+# Check if the app is running
+status:
+  @curl -fsS -o /dev/null http://{{APP_HOST}}:{{APP_PORT}}/healthz && echo "App is running on {{APP_HOST}}:{{APP_PORT}}" || echo "App is not running on {{APP_HOST}}:{{APP_PORT}}"
+
+# Build the Docker image
+docker-build:
+  docker compose build
+
+# Run the app in Docker (foreground, Ctrl-C to stop)
+docker-run *ARGS:
+  docker compose up --build {{ARGS}}
+
+# Run the app in Docker (detached)
+docker-up *ARGS:
+  docker compose up -d --build {{ARGS}}
+
+# Stop the Docker container
+docker-down:
+  docker compose down
+
+# View Docker container logs
+docker-logs *ARGS:
+  docker compose logs {{ARGS}}
+
+# Back up SQLite to S3 (runs inside Docker if container is running, else locally)
 backup-db:
-  uv run python scripts/backup_sqlite_to_s3.py
+  @docker compose ps -q personal-site > /dev/null 2>&1 \
+    && docker compose exec personal-site uv run python scripts/backup_sqlite_to_s3.py \
+    || uv run python scripts/backup_sqlite_to_s3.py
 
 cron-example:
   @echo "# Runs daily at 3:15am"

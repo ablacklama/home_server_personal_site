@@ -1,0 +1,38 @@
+<section class="card" id="ingredients-list" {% if oob %}hx-swap-oob="true"{% endif %}>
+    <h2>Ingredient library</h2>
+    {% if ingredients %}
+    <div class="workout-list">
+        {% for ing in ingredients %}
+        <div class="workout-card">
+            <div class="workout-card__header">
+                <div class="workout-card__title">{{ ing.name }}</div>
+                <div class="workout-card__meta">
+                    {% if ing.serving_size %}{{ ing.serving_size }} · {% endif %}
+                    <a href="{{ url_for('nutrition.edit_ingredient_form', ingredient_id=ing.id) }}">Edit</a>
+                    <form method="post"
+                        action="{{ url_for('nutrition.delete_ingredient', ingredient_id=ing.id) }}"
+                        hx-post="{{ url_for('nutrition.delete_ingredient', ingredient_id=ing.id) }}"
+                        hx-target="#ingredients-error"
+                        hx-swap="innerHTML"
+                        hx-confirm="Delete {{ ing.name }}?"
+                        style="display:inline">
+                        <button type="submit">Delete</button>
+                    </form>
+                </div>
+            </div>
+            <div class="nutrition-totals">
+                {% if ing.calories is not none %}<span>{{ "%.0f"|format(ing.calories) }} cal</span>{% endif %}
+                {% if ing.protein_g is not none %}<span>{{ "%.1f"|format(ing.protein_g) }}g protein</span>{% endif %}
+                {% if ing.carbs_g is not none %}<span>{{ "%.1f"|format(ing.carbs_g) }}g carbs</span>{% endif %}
+                {% if ing.fat_g is not none %}<span>{{ "%.1f"|format(ing.fat_g) }}g fat</span>{% endif %}
+                {% if ing.fiber_g is not none %}<span>{{ "%.1f"|format(ing.fiber_g) }}g fiber</span>{% endif %}
+                {% if ing.sugar_g is not none %}<span>{{ "%.1f"|format(ing.sugar_g) }}g sugar</span>{% endif %}
+                {% if ing.caffeine_mg is not none %}<span>{{ "%.0f"|format(ing.caffeine_mg) }}mg caffeine</span>{% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p>No ingredients yet. Create one above.</p>
+    {% endif %}
+</section>

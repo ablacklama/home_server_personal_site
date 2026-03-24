@@ -1,0 +1,13 @@
+services:
+  personal-site:
+    build: .
+    ports:
+      - "8743:8743"
+    volumes:
+      - site-data:/app/data
+    env_file:
+      - .env
+    restart: unless-stopped
+
+volumes:
+  site-data:

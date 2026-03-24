@@ -9,14 +9,25 @@ from flask import Flask, jsonify, render_template, request
 
 from . import ai_models  # noqa: F401
 from . import caffeine_models  # noqa: F401
+from . import nutrition_models  # noqa: F401
+from . import preferences_models  # noqa: F401
 from . import sleep_models  # noqa: F401
 from .ai import AiConfig, handle_ntfy_message
 from .config import get_settings
-from .db import Base, create_engine_and_sessionmaker, ensure_sqlite_workouts_schema
+from .db import (
+    Base,
+    create_engine_and_sessionmaker,
+    ensure_sqlite_chat_schema,
+    ensure_sqlite_workouts_schema,
+)
 from .notify import NotificationError, NtfyConfig, listen_ntfy, send_ntfy
 from .security import require_admin
 from .caffeine import bp as caffeine_bp
+from .chat import bp as chat_bp
+from .nutrition import bp as nutrition_bp
+from .preferences import bp as preferences_bp
 from .sleep import bp as sleep_bp
+from .stats import bp as stats_bp
 from .workouts import bp as workouts_bp
 
 
@@ -38,6 +49,7 @@ def create_app() -> Flask:
             engine, SessionLocal = create_engine_and_sessionmaker(settings.database_url)
             Base.metadata.create_all(bind=engine)
             ensure_sqlite_workouts_schema(engine)
+            ensure_sqlite_chat_schema(engine)
             app.session = SessionLocal  # type: ignore[attr-defined]
         except Exception:
             app.logger.exception("Database initialization failed")
@@ -195,8 +207,8 @@ def create_app() -> Flask:
 
         ai_cfg = AiConfig(
             enabled=settings.ai_enabled,
-            model=settings.openai_model,
-            api_key=settings.openai_api_key,
+            model=settings.anthropic_model,
+            api_key=settings.anthropic_api_key,
             debug_log=settings.ai_debug_log,
         )
 
@@ -269,8 +281,71 @@ def create_app() -> Flask:
             target=_ntfy_listener, name="ntfy-listener", daemon=True
         ).start()
 
+    def _report_scheduler():
+        import datetime as _dt
+
+        from sqlalchemy import select as _select
+
+        from .preferences_models import UserPreferences
+        from .reports import generate_weekly_report, send_report
+
+        last_sent_date: _dt.date | None = None
+
+        while True:
+            time.sleep(300)  # check every 5 minutes
+
+            SessionLocal = app.session  # type: ignore[attr-defined]
+            if SessionLocal is None:
+                continue
+
+            try:
+                now = _dt.datetime.now()
+                today = now.date()
+
+                if last_sent_date == today:
+                    continue
+
+                with SessionLocal() as session:
+                    prefs = session.scalars(_select(UserPreferences).limit(1)).first()
+                    if not prefs or not prefs.report_enabled:
+                        continue
+                    if not prefs.email:
+                        continue
+
+                    if now.weekday() != prefs.report_day:
+                        continue
+                    if now.hour < prefs.report_hour:
+                        continue
+
+                    html = generate_weekly_report(session)
+
+                send_report(html, prefs.email)
+                last_sent_date = today
+                app.logger.info("Weekly report sent to %s", prefs.email)
+            except Exception:
+                app.logger.exception("Report scheduler error")
+
+    if _should_start_background_threads(settings.debug):
+        threading.Thread(
+            target=_report_scheduler, name="report-scheduler", daemon=True
+        ).start()
+
+    app.config["_settings"] = settings
+
+    # Markdown filter for chat messages
+    import markdown as _md
+
+    def _md_filter(text: str) -> str:
+        return _md.markdown(text, extensions=["tables", "fenced_code", "nl2br"])
+
+    app.jinja_env.filters["markdown"] = _md_filter
+
     app.register_blueprint(workouts_bp)
     app.register_blueprint(sleep_bp)
     app.register_blueprint(caffeine_bp)
+    app.register_blueprint(nutrition_bp)
+    app.register_blueprint(chat_bp)
+    app.register_blueprint(stats_bp)
+    app.register_blueprint(preferences_bp)
 
     return app

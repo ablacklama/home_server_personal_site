@@ -1,0 +1,56 @@
+<section class="card" id="nutrition-recent" {% if oob %}hx-swap-oob="true"{% endif %}>
+    <h2>Recent logs</h2>
+    {% if recent_logs %}
+    <div class="workout-list">
+        {% for log in recent_logs %}
+        <div class="workout-card">
+            <div class="workout-card__header">
+                <div class="workout-card__title">
+                    {% if log.meal %}{{ log.meal.name }}{% else %}Ad-hoc meal{% endif %}
+                </div>
+                <div class="workout-card__meta">
+                    {{ log.logged_on.isoformat() }} · {{ log.time_bucket }}
+                    ·
+                    <form method="post" action="{{ url_for('nutrition.delete_log', log_id=log.id) }}"
+                        hx-post="{{ url_for('nutrition.delete_log', log_id=log.id) }}"
+                        hx-target="#nutrition-error"
+                        hx-swap="innerHTML"
+                        hx-confirm="Delete this log?"
+                        style="display:inline">
+                        <button type="submit">Delete</button>
+                    </form>
+                </div>
+            </div>
+
+            <dl class="metrics">
+                {% for item in log.items %}
+                <div class="metric-row">
+                    <dt>{{ item.ingredient.name }}</dt>
+                    <dd>{{ item.servings }} serving{{ 's' if item.servings != 1 }}</dd>
+                </div>
+                {% endfor %}
+            </dl>
+
+            <div class="nutrition-totals">
+                <span>{{ "%.0f"|format(log.total_calories) }} cal</span>
+                <span>{{ "%.1f"|format(log.total_protein_g) }}g protein</span>
+                <span>{{ "%.1f"|format(log.total_carbs_g) }}g carbs</span>
+                <span>{{ "%.1f"|format(log.total_fat_g) }}g fat</span>
+                {% if log.total_sugar_g > 0 %}
+                <span>{{ "%.1f"|format(log.total_sugar_g) }}g sugar</span>
+                {% endif %}
+                {% if log.total_caffeine_mg > 0 %}
+                <span>{{ "%.0f"|format(log.total_caffeine_mg) }}mg caffeine</span>
+                {% endif %}
+            </div>
+
+            {% if log.notes %}
+            <div class="workout-card__notes">{{ log.notes }}</div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p>No meals logged yet.</p>
+    {% endif %}
+</section>

@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block head_extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<h1>Stats</h1>
+
+<div class="period-selector">
+    <a href="{{ url_for('stats.index', period='week') }}"
+        class="{% if period == 'week' %}active{% endif %}">Week</a>
+    <a href="{{ url_for('stats.index', period='month') }}"
+        class="{% if period == 'month' %}active{% endif %}">Month</a>
+    <a href="{{ url_for('stats.index', period='year') }}"
+        class="{% if period == 'year' %}active{% endif %}">Year</a>
+</div>
+
+<p class="stats-range">{{ start }} to {{ end }}</p>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-card__value">{{ workouts.get('total', 0) }}</div>
+        <div class="stat-card__label">Workouts</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card__value">{{ workouts.get('streak', 0) }}</div>
+        <div class="stat-card__label">Day Streak</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card__value">
+            {% if sleep.get('avg_duration_minutes') %}
+            {{ "%.1f"|format(sleep.avg_duration_minutes / 60) }}h
+            {% else %}—{% endif %}
+        </div>
+        <div class="stat-card__label">Avg Sleep</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card__value">
+            {% if sleep.get('avg_quality') %}
+            {{ "%.1f"|format(sleep.avg_quality) }}/5
+            {% else %}—{% endif %}
+        </div>
+        <div class="stat-card__label">Sleep Quality</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card__value">{{ "%.0f"|format(nutrition.get('avg_calories', 0)) }}</div>
+        <div class="stat-card__label">Avg Calories/Day</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card__value">{{ "%.0f"|format(nutrition.get('avg_protein_g', 0)) }}g</div>
+        <div class="stat-card__label">Avg Protein/Day</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card__value">{{ "%.0f"|format(nutrition.get('avg_sugar_g', 0)) }}g</div>
+        <div class="stat-card__label">Avg Sugar/Day</div>
+    </div>
+</div>
+
+<div class="charts-grid">
+    <section class="card chart-container">
+        <h2>Workouts</h2>
+        <canvas id="workouts-chart"></canvas>
+    </section>
+    <section class="card chart-container">
+        <h2>Sleep</h2>
+        <canvas id="sleep-chart"></canvas>
+    </section>
+    <section class="card chart-container">
+        <h2>Calories</h2>
+        <canvas id="nutrition-chart"></canvas>
+    </section>
+</div>
+
+{% if workouts.get('per_type') %}
+<section class="card">
+    <h2>Workouts by type</h2>
+    <dl class="metrics">
+        {% for name, count in workouts.per_type.items() %}
+        <div class="metric-row">
+            <dt>{{ name }}</dt>
+            <dd>{{ count }}</dd>
+        </div>
+        {% endfor %}
+    </dl>
+</section>
+{% endif %}
+
+<script>
+(function () {
+    const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
+    const accentStrong = getComputedStyle(document.documentElement).getPropertyValue("--accent-strong").trim();
+    const highlight = getComputedStyle(document.documentElement).getPropertyValue("--highlight").trim();
+
+    const chartDefaults = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true } },
+    };
+
+    // Workouts chart
+    const wDaily = {{ workouts.get('daily', {}) | tojson }};
+    const wLabels = Object.keys(wDaily).sort();
+    new Chart(document.getElementById("workouts-chart"), {
+        type: "bar",
+        data: {
+            labels: wLabels,
+            datasets: [{
+                label: "Workouts",
+                data: wLabels.map(d => wDaily[d]),
+                backgroundColor: accent,
+            }],
+        },
+        options: chartDefaults,
+    });
+
+    // Sleep chart
+    const sDaily = {{ sleep.get('daily', {}) | tojson }};
+    const sLabels = Object.keys(sDaily).sort();
+    new Chart(document.getElementById("sleep-chart"), {
+        type: "line",
+        data: {
+            labels: sLabels,
+            datasets: [{
+                label: "Hours",
+                data: sLabels.map(d => sDaily[d]),
+                borderColor: accentStrong,
+                backgroundColor: accentStrong + "33",
+                fill: true,
+                tension: 0.3,
+            }],
+        },
+        options: chartDefaults,
+    });
+
+    // Nutrition chart
+    const nDaily = {{ nutrition.get('daily_calories', {}) | tojson }};
+    const nLabels = Object.keys(nDaily).sort();
+    new Chart(document.getElementById("nutrition-chart"), {
+        type: "line",
+        data: {
+            labels: nLabels,
+            datasets: [{
+                label: "Calories",
+                data: nLabels.map(d => nDaily[d]),
+                borderColor: highlight,
+                backgroundColor: highlight + "33",
+                fill: true,
+                tension: 0.3,
+            }],
+        },
+        options: chartDefaults,
+    });
+})();
+</script>
+{% endblock %}
