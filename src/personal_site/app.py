@@ -5,7 +5,7 @@ import threading
 import time
 from collections import deque
 
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, redirect, request, url_for
 
 from . import ai_models  # noqa: F401
 from . import caffeine_models  # noqa: F401
@@ -107,7 +107,7 @@ def create_app() -> Flask:
 
     @app.get("/")
     def index():
-        return render_template("index.html", title="Home")
+        return redirect(url_for("chat.index"))
 
     @app.get("/healthz")
     def healthz():

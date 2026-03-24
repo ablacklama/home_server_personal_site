@@ -21,7 +21,7 @@
 <body>
   <header class="site-header">
     <nav class="nav">
-      <a class="brand" href="{{ url_for('index') }}">Personal Site</a>
+      <a class="brand" href="{{ url_for('chat.index') }}">Personal Site</a>
       <button class="nav-toggle" aria-label="Menu" aria-expanded="false">
         <span></span><span></span><span></span>
       </button>
@@ -35,10 +35,8 @@
         <label class="theme-switch">
           <span class="theme-switch__label">Theme</span>
           <select data-theme-switcher>
-            <option value="midnight">Midnight</option>
-            <option value="ember">Ember</option>
-            <option value="sage">Sage</option>
-            <option value="wave">Wave</option>
+            <option value="midnight">Dark</option>
+            <option value="light">Light</option>
           </select>
         </label>
       </div>

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime as dt
 import json
 import logging
 import threading
@@ -14,7 +15,7 @@ from flask import (
     request,
     url_for,
 )
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from .ai import AiConfig, handle_chat_message
 from .ai_models import AiMessage, ChatConversation
@@ -89,7 +90,21 @@ def create_conversation():
         return redirect(url_for("chat.index"))
 
     with SessionLocal() as session:
-        conv = ChatConversation(title="New chat")
+        today = dt.date.today()
+        date_label = today.strftime("%b %-d")
+        # Count how many conversations were created today
+        start_of_day = dt.datetime.combine(today, dt.time.min, tzinfo=dt.timezone.utc)
+        count_today = (
+            session.scalar(
+                select(func.count(ChatConversation.id)).where(
+                    ChatConversation.created_at >= start_of_day
+                )
+            )
+            or 0
+        )
+        title = f"{date_label} #{count_today + 1}"
+
+        conv = ChatConversation(title=title)
         session.add(conv)
         session.commit()
         conv_id = conv.id
