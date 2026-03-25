@@ -6,9 +6,12 @@ import logging
 import threading
 import traceback
 
+import markdown as _md
+
 from flask import (
     Blueprint,
     current_app,
+    jsonify,
     make_response,
     redirect,
     render_template,
@@ -87,6 +90,8 @@ def index():
 def create_conversation():
     SessionLocal = current_app.session  # type: ignore[attr-defined]
     if SessionLocal is None:
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"error": "Database not configured"}), 503
         return redirect(url_for("chat.index"))
 
     with SessionLocal() as session:
@@ -109,6 +114,9 @@ def create_conversation():
         session.commit()
         conv_id = conv.id
 
+    # Return JSON for XHR (floating widget), redirect for normal form submit
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"id": conv_id})
     return redirect(url_for("chat.conversation", conv_id=conv_id))
 
 
@@ -269,3 +277,116 @@ def poll_messages(conv_id: str):
         return ""
 
     return render_template("partials/chat_new_messages.html", messages=messages)
+
+
+def _md_render(text: str) -> str:
+    return _md.markdown(text, extensions=["tables", "fenced_code", "nl2br"])
+
+
+def _msg_to_json(msg: AiMessage) -> dict:
+    kind = (msg.meta or {}).get("kind", "text") if msg.meta else "text"
+    return {
+        "id": msg.id,
+        "role": msg.role,
+        "content": msg.content,
+        "html": _md_render(msg.content) if kind not in ("status",) else msg.content,
+        "kind": kind,
+    }
+
+
+@bp.get("/widget/<conv_id>/poll")
+def widget_poll(conv_id: str):
+    """JSON polling endpoint for the floating chat widget."""
+    SessionLocal = current_app.session  # type: ignore[attr-defined]
+    if SessionLocal is None:
+        return jsonify([])
+
+    after = request.args.get("after", "")
+
+    with SessionLocal() as session:
+        query = (
+            select(AiMessage)
+            .where(AiMessage.conversation_id == conv_id)
+            .order_by(AiMessage.created_at.asc())
+        )
+        if after:
+            after_msg = session.get(AiMessage, after)
+            if after_msg:
+                query = query.where(AiMessage.created_at > after_msg.created_at)
+
+        messages = list(session.scalars(query).all())
+
+    return jsonify([_msg_to_json(m) for m in messages])
+
+
+@bp.post("/widget/<conv_id>/send")
+def widget_send(conv_id: str):
+    """JSON send endpoint for the floating chat widget."""
+    SessionLocal = current_app.session  # type: ignore[attr-defined]
+    if SessionLocal is None:
+        return jsonify({"error": "Database not configured"}), 503
+
+    text = (request.form.get("message") or "").strip()
+    if not text:
+        return jsonify({"error": "Empty message"}), 400
+
+    settings = current_app.config.get("_settings")
+    ai_cfg = AiConfig(
+        enabled=settings.ai_enabled if settings else False,
+        model=settings.anthropic_model if settings else "claude-sonnet-4-6",
+        api_key=settings.anthropic_api_key if settings else None,
+        debug_log=settings.ai_debug_log if settings else False,
+    )
+
+    with SessionLocal() as session:
+        conv = session.get(ChatConversation, conv_id)
+        if conv is None:
+            return jsonify({"error": "Conversation not found"}), 404
+
+        user_msg = AiMessage(
+            conversation_id=conv_id,
+            role="user",
+            content=text,
+        )
+        session.add(user_msg)
+        session.commit()
+        msg_data = _msg_to_json(user_msg)
+
+    # Kick off AI response in background (same as send_message)
+    def _process():
+        try:
+            with SessionLocal() as session:
+                handle_chat_message(
+                    session=session,
+                    ai_cfg=ai_cfg,
+                    conversation_id=conv_id,
+                )
+        except Exception:
+            tb = traceback.format_exc()
+            logger.exception("Chat AI processing failed for %s", conv_id)
+            try:
+                with SessionLocal() as session:
+                    stale = session.scalars(
+                        select(AiMessage)
+                        .where(AiMessage.conversation_id == conv_id)
+                        .where(AiMessage.meta["kind"].as_string() == "status")
+                    ).all()
+                    for s in stale:
+                        session.delete(s)
+                    session.add(
+                        AiMessage(
+                            conversation_id=conv_id,
+                            role="assistant",
+                            content=f"Error processing your message:\n\n{tb}",
+                            meta={"kind": "error"},
+                        )
+                    )
+                    session.commit()
+            except Exception:
+                logger.exception("Failed to save error message for %s", conv_id)
+
+    threading.Thread(
+        target=_process, name=f"chat-widget-{conv_id}", daemon=True
+    ).start()
+
+    return jsonify(msg_data)

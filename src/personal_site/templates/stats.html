@@ -9,11 +9,11 @@
 
 <div class="period-selector">
     <a href="{{ url_for('stats.index', period='week') }}"
-        class="{% if period == 'week' %}active{% endif %}">Week</a>
+        class="period-link {% if period == 'week' %}active{% endif %}">Week</a>
     <a href="{{ url_for('stats.index', period='month') }}"
-        class="{% if period == 'month' %}active{% endif %}">Month</a>
+        class="period-link {% if period == 'month' %}active{% endif %}">Month</a>
     <a href="{{ url_for('stats.index', period='year') }}"
-        class="{% if period == 'year' %}active{% endif %}">Year</a>
+        class="period-link {% if period == 'year' %}active{% endif %}">Year</a>
 </div>
 
 <p class="stats-range">{{ start }} to {{ end }}</p>
@@ -151,6 +151,16 @@
             }],
         },
         options: chartDefaults,
+    });
+})();
+
+// Append tz_offset to period links so the server knows the client's timezone
+(function () {
+    var offset = new Date().getTimezoneOffset();
+    document.querySelectorAll("a.period-link").forEach(function (a) {
+        var url = new URL(a.href, location.origin);
+        url.searchParams.set("tz_offset", offset);
+        a.href = url.toString();
     });
 })();
 </script>

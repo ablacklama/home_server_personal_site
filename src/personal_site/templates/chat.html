@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% set hide_chat_fab = true %}
 
 {% block content %}
 <h1>Chat</h1>
@@ -125,28 +126,14 @@
         document.body.addEventListener("chatMessageSent", function () {
             const input = form.querySelector("input[name='message']");
             if (input) input.value = "";
-            _userSentMessage = true;
             showTyping();
         });
     }
 
     // After every htmx swap into chat-messages: dedup, clean status, manage typing
-    var _userSentMessage = false;
-
-    document.body.addEventListener("htmx:beforeSwap", function (event) {
-        if (!messagesDiv) return;
-        if (event.detail.target === messagesDiv || messagesDiv.contains(event.detail.target)) {
-            // Snapshot scroll position before DOM changes
-            event.detail._wasNearBottom = isNearBottom() || _userSentMessage;
-        }
-    });
-
     document.body.addEventListener("htmx:afterSwap", function (event) {
         if (!messagesDiv) return;
         if (event.detail.target === messagesDiv || messagesDiv.contains(event.detail.target)) {
-            var shouldScroll = event.detail._wasNearBottom || _userSentMessage;
-            _userSentMessage = false;
-
             dedup();
             // Keep only the latest status bubble (remove older ones)
             var statusBubbles = Array.from(messagesDiv.querySelectorAll("[data-msg-kind='status']"));
@@ -164,7 +151,7 @@
                 removeTyping();
                 cleanStatus();
             }
-            if (shouldScroll) scrollToBottom();
+            scrollToBottom();
         }
     });
 

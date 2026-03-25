@@ -9,7 +9,11 @@ from .sleep_models import SleepEntry
 from .workouts_models import WorkoutEntry, WorkoutType
 
 
-def workout_stats(session, start: dt.date, end: dt.date) -> dict:
+def workout_stats(
+    session, start: dt.date, end: dt.date, *, today: dt.date | None = None
+) -> dict:
+    today = today or dt.date.today()
+
     entries = session.scalars(
         select(WorkoutEntry).where(
             WorkoutEntry.performed_on >= start,
@@ -37,7 +41,7 @@ def workout_stats(session, start: dt.date, end: dt.date) -> dict:
         name = types.get(e.workout_type_id, "Unknown")
         per_type[name] = per_type.get(name, 0) + 1
 
-    # Per-day counts for charting
+    # Per-day counts for charting (include today for the chart)
     daily: dict[str, int] = {}
     for e in entries:
         day = e.performed_on.isoformat() if e.performed_on else "unknown"
@@ -61,7 +65,11 @@ def workout_stats(session, start: dt.date, end: dt.date) -> dict:
     }
 
 
-def sleep_stats(session, start: dt.date, end: dt.date) -> dict:
+def sleep_stats(
+    session, start: dt.date, end: dt.date, *, today: dt.date | None = None
+) -> dict:
+    today = today or dt.date.today()
+
     entries = list(
         session.scalars(
             select(SleepEntry).where(
@@ -82,20 +90,35 @@ def sleep_stats(session, start: dt.date, end: dt.date) -> dict:
     total_minutes = sum(e.duration_minutes for e in entries)
     qualities = [e.quality for e in entries if e.quality is not None]
 
+    # Daily values for charting (include today)
     daily: dict[str, float] = {}
     for e in entries:
         day = e.slept_on.isoformat()
         daily[day] = e.duration_minutes / 60.0
 
+    # For averages, exclude today (incomplete day)
+    completed = [e for e in entries if e.slept_on < today]
+    if completed:
+        avg_min = sum(e.duration_minutes for e in completed) / len(completed)
+        comp_q = [e.quality for e in completed if e.quality is not None]
+        avg_q = sum(comp_q) / len(comp_q) if comp_q else None
+    else:
+        avg_min = total_minutes / len(entries)
+        avg_q = sum(qualities) / len(qualities) if qualities else None
+
     return {
         "count": len(entries),
-        "avg_duration_minutes": total_minutes / len(entries),
-        "avg_quality": sum(qualities) / len(qualities) if qualities else None,
+        "avg_duration_minutes": avg_min,
+        "avg_quality": avg_q,
         "daily": daily,
     }
 
 
-def nutrition_stats(session, start: dt.date, end: dt.date) -> dict:
+def nutrition_stats(
+    session, start: dt.date, end: dt.date, *, today: dt.date | None = None
+) -> dict:
+    today = today or dt.date.today()
+
     logs = list(
         session.scalars(
             select(NutritionLog).where(
@@ -153,14 +176,19 @@ def nutrition_stats(session, start: dt.date, end: dt.date) -> dict:
                 daily_sugar.get(day, 0) + (ingredient.sugar_g or 0) * item.servings
             )
 
-    num_days = len(daily_cals) or 1
+    # For averages, exclude today (incomplete day) so partial logging
+    # doesn't drag down the average.
+    today_str = today.isoformat()
+    completed_days = {d for d in daily_cals if d != today_str}
+    num_days = len(completed_days) or 1
 
     return {
         "count": len(logs),
-        "avg_calories": sum(daily_cals.values()) / num_days,
-        "avg_protein_g": sum(daily_protein.values()) / num_days,
-        "avg_carbs_g": sum(daily_carbs.values()) / num_days,
-        "avg_fat_g": sum(daily_fat.values()) / num_days,
-        "avg_sugar_g": sum(daily_sugar.values()) / num_days,
+        "avg_calories": sum(daily_cals.get(d, 0) for d in completed_days) / num_days,
+        "avg_protein_g": sum(daily_protein.get(d, 0) for d in completed_days)
+        / num_days,
+        "avg_carbs_g": sum(daily_carbs.get(d, 0) for d in completed_days) / num_days,
+        "avg_fat_g": sum(daily_fat.get(d, 0) for d in completed_days) / num_days,
+        "avg_sugar_g": sum(daily_sugar.get(d, 0) for d in completed_days) / num_days,
         "daily_calories": daily_cals,
     }

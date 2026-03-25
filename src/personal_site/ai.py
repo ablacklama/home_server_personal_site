@@ -338,6 +338,84 @@ def _build_tools(*, include_web_search: bool = False) -> list[dict[str, Any]]:
                 },
             },
             {
+                "name": "list_conversation_entries",
+                "description": (
+                    "List all entries (nutrition, sleep, workout, caffeine) that were "
+                    "logged during this conversation. Returns entry IDs and types so you "
+                    "can edit or delete them."
+                ),
+                "input_schema": {
+                    "type": "object",
+                    "properties": {},
+                    "required": [],
+                },
+            },
+            {
+                "name": "edit_entry",
+                "description": (
+                    "Edit an entry that was logged in this conversation. "
+                    "First call list_conversation_entries to get the entry_id and entry_type. "
+                    "Only include fields you want to change in updates."
+                ),
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "entry_id": {
+                            "type": "string",
+                            "description": "The ID of the entry to edit.",
+                        },
+                        "entry_type": {
+                            "type": "string",
+                            "enum": [
+                                "nutrition",
+                                "sleep",
+                                "workout",
+                                "caffeine",
+                            ],
+                        },
+                        "updates": {
+                            "type": "object",
+                            "description": (
+                                "Fields to update. For nutrition: logged_on, time_bucket, notes, "
+                                "ingredients (array of {name, servings, serving_size, calories, "
+                                "protein_g, carbs_g, fat_g, sugar_g} — replaces all items). "
+                                "For sleep: slept_on, duration_hours, duration_minutes, quality, notes. "
+                                "For workout: performed_on, time_bucket, notes. "
+                                "For caffeine: consumed_on, time_bucket, amount_mg, source, notes."
+                            ),
+                        },
+                    },
+                    "required": ["entry_id", "entry_type", "updates"],
+                },
+            },
+            {
+                "name": "delete_entry",
+                "description": (
+                    "Delete an entry that was logged in this conversation. "
+                    "First call list_conversation_entries to get the entry_id and entry_type."
+                ),
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "entry_id": {
+                            "type": "string",
+                            "description": "The ID of the entry to delete.",
+                        },
+                        "entry_type": {
+                            "type": "string",
+                            "enum": [
+                                "nutrition",
+                                "sleep",
+                                "workout",
+                                "caffeine",
+                                "meal",
+                            ],
+                        },
+                    },
+                    "required": ["entry_id", "entry_type"],
+                },
+            },
+            {
                 "name": "ignore_message",
                 "description": "Do nothing (message is not intended to control the app).",
                 "input_schema": {
@@ -1537,9 +1615,12 @@ def handle_chat_message(
     ).all()
     recent_rows = list(reversed(recent_rows))
 
-    # Build Claude messages from conversation history
+    # Build Claude messages from conversation history — skip status/info/error
     claude_messages: list[dict[str, str]] = []
     for msg in recent_rows:
+        kind = (msg.meta or {}).get("kind") if msg.meta else None
+        if kind in ("status", "info", "error"):
+            continue
         claude_messages.append({"role": msg.role, "content": msg.content})
 
     workout_types = session.scalars(
@@ -1590,6 +1671,8 @@ def handle_chat_message(
             "- ONLY use create_meal when the user explicitly asks to save/create a reusable meal template.",
             "  Saved meals are for recurring meals (e.g. 'my breakfast sandwich'), NOT for one-off logging.",
             "  If the user just says they ate something, use log_nutrition directly — do NOT create a meal.",
+            "- Editing/deleting: if the user wants to change or remove something they logged in this conversation,",
+            "  call list_conversation_entries to find the entry_id, then use edit_entry or delete_entry.",
         ]
     )
 
@@ -1635,6 +1718,9 @@ def handle_chat_message(
         "log_workout": "Logging workout…",
         "log_sleep": "Logging sleep…",
         "log_caffeine": "Logging caffeine…",
+        "list_conversation_entries": "Looking up entries…",
+        "edit_entry": "Editing entry…",
+        "delete_entry": "Deleting entry…",
         "respond_to_user": "Thinking…",
         "ask_followup": "Thinking…",
     }
@@ -1672,6 +1758,12 @@ def handle_chat_message(
                 if getattr(block, "type", None) == "text":
                     text_parts.append(block.text)
             reply = "\n".join(text_parts).strip()
+            logger.info(
+                "chat end_turn: iter=%d last_action=%s reply=%s",
+                _iteration,
+                last_action,
+                reply[:200] if reply else "(empty)",
+            )
             if reply:
                 session.add(
                     AiMessage(
@@ -1724,23 +1816,55 @@ def handle_chat_message(
             label = _TOOL_LABELS.get(tc_name, f"Running {tc_name}…")
             _set_status(label)
 
-            if ai_cfg.debug_log:
-                logger.info(
-                    "chat debug: tool=%s args=%s",
-                    tc_name,
-                    json.dumps(tc_args, ensure_ascii=False),
-                )
+            logger.info(
+                "chat tool call: %s args=%s",
+                tc_name,
+                json.dumps(tc_args, ensure_ascii=False),
+            )
 
-            result_text = _execute_chat_tool(
-                session=session, name=tc_name, args=tc_args
+            result = _execute_chat_tool(
+                session=session,
+                name=tc_name,
+                args=tc_args,
+                conversation_id=conversation_id,
             )
             last_action = tc_name
+
+            logger.info("chat tool result: %s → %s", tc_name, result.text[:200])
+
+            # Save a visible confirmation for actions that modify data
+            _CONFIRM_TOOLS = {
+                "log_nutrition",
+                "log_workout",
+                "log_sleep",
+                "log_caffeine",
+                "create_meal",
+                "edit_entry",
+                "delete_entry",
+            }
+            if tc_name in _CONFIRM_TOOLS and not result.text.startswith(
+                ("I need", "Unknown", "entry_id")
+            ):
+                meta: dict[str, Any] = {"kind": "info"}
+                if result.entry_id:
+                    meta["entry_id"] = result.entry_id
+                if result.entry_type:
+                    meta["entry_type"] = result.entry_type
+                session.add(
+                    AiMessage(
+                        conversation_id=conversation_id,
+                        role="assistant",
+                        content=result.text,
+                        meta=meta,
+                    )
+                )
+                session.commit()
 
             tool_results.append(
                 {
                     "type": "tool_result",
                     "tool_use_id": tc.id,
-                    "content": result_text,
+                    "content": result.text,
                 }
             )
 
@@ -1764,18 +1888,26 @@ def handle_chat_message(
     return {"handled": True, "action": last_action}
 
 
+@dataclass
+class ToolResult:
+    text: str
+    entry_id: str | None = None
+    entry_type: str | None = None
+
+
 def _execute_chat_tool(
     *,
     session,
     name: str,
     args: dict[str, Any],
-) -> str:
-    """Execute a tool call from the chat and return a human-readable reply."""
+    conversation_id: str | None = None,
+) -> ToolResult:
+    """Execute a tool call from the chat and return a structured result."""
     if name == "respond_to_user":
-        return str(args.get("message") or "").strip() or "OK"
+        return ToolResult(str(args.get("message") or "").strip() or "OK")
 
     if name == "ignore_message":
-        return ""
+        return ToolResult("")
 
     if name == "search_ingredients":
         keyword = (str(args.get("keyword") or "")).strip().lower()
@@ -1784,8 +1916,9 @@ def _execute_chat_tool(
             query = query.where(Ingredient.name.ilike(f"%{keyword}%"))
         results = list(session.scalars(query).all())
         if not results:
-            return "No ingredients found." + (
-                f" No match for '{keyword}'." if keyword else ""
+            return ToolResult(
+                "No ingredients found."
+                + (f" No match for '{keyword}'." if keyword else "")
             )
         lines = []
         for ing in results:
@@ -1808,7 +1941,7 @@ def _execute_chat_tool(
             if info:
                 parts.append("— " + ", ".join(info))
             lines.append(" ".join(parts))
-        return f"Found {len(results)} ingredient(s):\n" + "\n".join(lines)
+        return ToolResult(f"Found {len(results)} ingredient(s):\n" + "\n".join(lines))
 
     if name == "log_sleep":
         slept_on_raw = args.get("slept_on")
@@ -1828,7 +1961,9 @@ def _execute_chat_tool(
         hours = int(duration_hours or 0)
         minutes = int(duration_minutes or 0)
         if hours == 0 and minutes == 0:
-            return "I need the sleep duration to log that. How long did you sleep?"
+            return ToolResult(
+                "I need the sleep duration to log that. How long did you sleep?"
+            )
 
         if quality is not None:
             try:
@@ -1838,20 +1973,19 @@ def _execute_chat_tool(
             if quality is not None and (quality < 1 or quality > 5):
                 quality = None
 
-        session.add(
-            SleepEntry(
-                slept_on=slept_on,
-                duration_minutes=hours * 60 + minutes,
-                quality=quality,
-                notes=notes,
-            )
+        entry = SleepEntry(
+            slept_on=slept_on,
+            duration_minutes=hours * 60 + minutes,
+            quality=quality,
+            notes=notes,
         )
+        session.add(entry)
         session.commit()
 
         parts = [f"Logged sleep: {hours}h {minutes}m on {slept_on.isoformat()}"]
         if quality:
             parts.append(f"Quality: {quality}/5")
-        return ". ".join(parts)
+        return ToolResult(". ".join(parts), entry_id=entry.id, entry_type="sleep")
 
     if name == "log_caffeine":
         consumed_on_raw = args.get("consumed_on")
@@ -1865,15 +1999,15 @@ def _execute_chat_tool(
         notes = str(args.get("notes") or "").strip() or None
 
         if amount_mg is None:
-            return "I need the caffeine amount (mg) to log that."
+            return ToolResult("I need the caffeine amount (mg) to log that.")
 
         try:
             amount_mg = int(amount_mg)
         except Exception:
-            return "Caffeine amount must be a number (mg)."
+            return ToolResult("Caffeine amount must be a number (mg).")
 
         if amount_mg <= 0:
-            return "Caffeine amount must be positive."
+            return ToolResult("Caffeine amount must be positive.")
 
         if consumed_on_raw:
             try:
@@ -1890,22 +2024,21 @@ def _execute_chat_tool(
             consumed_on, _bucket_to_time(time_bucket)
         ).replace(tzinfo=dt.timezone.utc)
 
-        session.add(
-            CaffeineEntry(
-                consumed_at=consumed_at,
-                consumed_on=consumed_on,
-                time_bucket=time_bucket,
-                amount_mg=amount_mg,
-                source=source,
-                notes=notes,
-            )
+        entry = CaffeineEntry(
+            consumed_at=consumed_at,
+            consumed_on=consumed_on,
+            time_bucket=time_bucket,
+            amount_mg=amount_mg,
+            source=source,
+            notes=notes,
         )
+        session.add(entry)
         session.commit()
 
         parts = [f"Logged caffeine: {amount_mg}mg on {consumed_on.isoformat()}"]
         if source:
             parts.append(f"Source: {source}")
-        return ". ".join(parts)
+        return ToolResult(". ".join(parts), entry_id=entry.id, entry_type="caffeine")
 
     if name == "log_workout":
         workout_type_name = str(args.get("workout_type_name") or "").strip()
@@ -1926,7 +2059,7 @@ def _execute_chat_tool(
 
         if not workout_type_name:
             type_names = ", ".join([wt.name for wt in workout_types])
-            return (
+            return ToolResult(
                 f"Which workout type? Available: {type_names}"
                 if type_names
                 else "No workout types exist yet. Create one in /workouts/types/new."
@@ -1937,7 +2070,9 @@ def _execute_chat_tool(
             workout_type = workout_types[0]
         if workout_type is None:
             type_names = ", ".join([wt.name for wt in workout_types])
-            return f"I don't recognize '{workout_type_name}'. Available: {type_names}"
+            return ToolResult(
+                f"I don't recognize '{workout_type_name}'. Available: {type_names}"
+            )
 
         if performed_on_raw:
             try:
@@ -1958,33 +2093,34 @@ def _execute_chat_tool(
         try:
             metrics = _validate_metrics(workout_type, raw_metrics)
         except Exception as exc:
-            return f"Metric validation error for {workout_type.name}: {exc}"
+            return ToolResult(f"Metric validation error for {workout_type.name}: {exc}")
 
-        session.add(
-            WorkoutEntry(
-                workout_type_id=workout_type.id,
-                performed_at=performed_at,
-                performed_on=performed_on,
-                time_bucket=time_bucket,
-                notes=notes,
-                metrics=metrics,
-            )
+        entry = WorkoutEntry(
+            workout_type_id=workout_type.id,
+            performed_at=performed_at,
+            performed_on=performed_on,
+            time_bucket=time_bucket,
+            notes=notes,
+            metrics=metrics,
         )
+        session.add(entry)
         session.commit()
 
-        return (
-            f"Logged {workout_type.name} on {performed_on.isoformat()} ({time_bucket})"
+        return ToolResult(
+            f"Logged {workout_type.name} on {performed_on.isoformat()} ({time_bucket})",
+            entry_id=entry.id,
+            entry_type="workout",
         )
 
     if name == "create_meal":
         meal_name = str(args.get("meal_name") or "").strip()
         if not meal_name:
-            return "I need a name for the meal."
+            return ToolResult("I need a name for the meal.")
 
         notes = str(args.get("notes") or "").strip() or None
         ingredient_entries = args.get("ingredients") or []
         if not ingredient_entries:
-            return "I need at least one ingredient for the meal."
+            return ToolResult("I need at least one ingredient for the meal.")
 
         meal = Meal(name=meal_name, notes=notes)
         session.add(meal)
@@ -2037,7 +2173,7 @@ def _execute_chat_tool(
             parts.append(f"New ingredients: {', '.join(created_ingredients)}")
         if reused_ingredients:
             parts.append(f"Existing ingredients: {', '.join(reused_ingredients)}")
-        return ". ".join(parts)
+        return ToolResult(". ".join(parts), entry_id=meal.id, entry_type="meal")
 
     if name == "log_nutrition":
         logged_on_raw = args.get("logged_on")
@@ -2070,6 +2206,7 @@ def _execute_chat_tool(
         )
 
         logged_items: list[str] = []
+        use_ad_hoc = False
 
         if meal_name:
             meal = session.scalar(
@@ -2089,11 +2226,23 @@ def _execute_chat_tool(
                         )
                     )
                     logged_items.append(mi.ingredient.name if mi.ingredient else "?")
+            elif ad_hoc:
+                # Meal not found but ingredients provided — use the ingredients
+                logger.warning(
+                    "Meal '%s' not found, falling back to ad-hoc ingredients",
+                    meal_name,
+                )
+                use_ad_hoc = True
             else:
-                return (
+                return ToolResult(
                     f"Meal '{meal_name}' not found. Create it first with create_meal."
                 )
-        elif ad_hoc:
+        else:
+            use_ad_hoc = True
+
+        if use_ad_hoc:
+            if not ad_hoc:
+                return ToolResult("I need either a meal name or ingredients to log.")
             session.add(log)
             session.flush()
             for entry in ad_hoc:
@@ -2128,16 +2277,220 @@ def _execute_chat_tool(
                     )
                 )
                 logged_items.append(ing_name)
-        else:
-            return "I need either a meal name or ingredients to log."
 
         session.commit()
-        return f"Logged nutrition for {logged_on.isoformat()} ({time_bucket}): {', '.join(logged_items)}"
+        return ToolResult(
+            f"Logged nutrition for {logged_on.isoformat()} ({time_bucket}): {', '.join(logged_items)}",
+            entry_id=log.id,
+            entry_type="nutrition",
+        )
+
+    if name == "list_conversation_entries":
+        if not conversation_id:
+            return ToolResult("No conversation context available.")
+        info_msgs = session.scalars(
+            select(AiMessage)
+            .where(AiMessage.conversation_id == conversation_id)
+            .where(AiMessage.meta["kind"].as_string() == "info")
+            .order_by(AiMessage.created_at.asc())
+        ).all()
+        entries: list[str] = []
+        for msg in info_msgs:
+            eid = (msg.meta or {}).get("entry_id")
+            etype = (msg.meta or {}).get("entry_type")
+            if eid and etype:
+                entries.append(f"- [{etype}] id={eid}: {msg.content}")
+        if not entries:
+            return ToolResult("No entries logged in this conversation yet.")
+        return ToolResult("Entries logged in this conversation:\n" + "\n".join(entries))
+
+    if name == "edit_entry":
+        entry_id = str(args.get("entry_id") or "").strip()
+        entry_type = str(args.get("entry_type") or "").strip()
+        updates = args.get("updates") or {}
+        if not entry_id or not entry_type:
+            return ToolResult("entry_id and entry_type are required.")
+
+        if entry_type == "nutrition":
+            log = session.get(NutritionLog, entry_id)
+            if not log:
+                return ToolResult(f"Nutrition log {entry_id} not found.")
+            # Update date/time_bucket/notes
+            if updates.get("logged_on"):
+                try:
+                    log.logged_on = dt.date.fromisoformat(str(updates["logged_on"]))
+                except ValueError:
+                    pass
+            if (
+                updates.get("time_bucket")
+                and updates["time_bucket"] in ALLOWED_TIME_BUCKETS
+            ):
+                log.time_bucket = updates["time_bucket"]
+            if "notes" in updates:
+                log.notes = str(updates["notes"] or "").strip() or None
+            # Replace ingredients if provided
+            new_ingredients = updates.get("ingredients")
+            if new_ingredients is not None:
+                # Remove old items
+                for item in list(log.items):
+                    session.delete(item)
+                session.flush()
+                for entry in new_ingredients:
+                    ing_name = str(entry.get("name") or "").strip()
+                    if not ing_name:
+                        continue
+                    servings = float(entry.get("servings") or 1)
+                    ingredient = session.scalar(
+                        select(Ingredient).where(
+                            func.lower(Ingredient.name) == ing_name.lower()
+                        )
+                    )
+                    if not ingredient:
+                        ingredient = Ingredient(
+                            name=ing_name,
+                            serving_size=str(entry.get("serving_size") or "").strip()
+                            or None,
+                            calories=entry.get("calories"),
+                            protein_g=entry.get("protein_g"),
+                            carbs_g=entry.get("carbs_g"),
+                            fat_g=entry.get("fat_g"),
+                            sugar_g=entry.get("sugar_g"),
+                        )
+                        session.add(ingredient)
+                        session.flush()
+                    session.add(
+                        NutritionLogItem(
+                            nutrition_log_id=log.id,
+                            ingredient_id=ingredient.id,
+                            servings=servings,
+                        )
+                    )
+            session.commit()
+            return ToolResult(
+                f"Updated nutrition log {entry_id}.",
+                entry_id=entry_id,
+                entry_type="nutrition",
+            )
+
+        if entry_type == "sleep":
+            entry = session.get(SleepEntry, entry_id)
+            if not entry:
+                return ToolResult(f"Sleep entry {entry_id} not found.")
+            if updates.get("slept_on"):
+                try:
+                    entry.slept_on = dt.date.fromisoformat(str(updates["slept_on"]))
+                except ValueError:
+                    pass
+            dh = updates.get("duration_hours")
+            dm = updates.get("duration_minutes")
+            if dh is not None or dm is not None:
+                h = int(dh) if dh is not None else entry.duration_minutes // 60
+                m = int(dm) if dm is not None else entry.duration_minutes % 60
+                entry.duration_minutes = h * 60 + m
+            if "quality" in updates and updates["quality"] is not None:
+                try:
+                    q = int(updates["quality"])
+                    if 1 <= q <= 5:
+                        entry.quality = q
+                except (ValueError, TypeError):
+                    pass
+            if "notes" in updates:
+                entry.notes = str(updates["notes"] or "").strip() or None
+            session.commit()
+            return ToolResult(
+                f"Updated sleep entry {entry_id}.",
+                entry_id=entry_id,
+                entry_type="sleep",
+            )
+
+        if entry_type == "workout":
+            entry = session.get(WorkoutEntry, entry_id)
+            if not entry:
+                return ToolResult(f"Workout entry {entry_id} not found.")
+            if updates.get("performed_on"):
+                try:
+                    entry.performed_on = dt.date.fromisoformat(
+                        str(updates["performed_on"])
+                    )
+                except ValueError:
+                    pass
+            if (
+                updates.get("time_bucket")
+                and updates["time_bucket"] in ALLOWED_TIME_BUCKETS
+            ):
+                entry.time_bucket = updates["time_bucket"]
+            if "notes" in updates:
+                entry.notes = str(updates["notes"] or "").strip() or None
+            session.commit()
+            return ToolResult(
+                f"Updated workout entry {entry_id}.",
+                entry_id=entry_id,
+                entry_type="workout",
+            )
+
+        if entry_type == "caffeine":
+            entry = session.get(CaffeineEntry, entry_id)
+            if not entry:
+                return ToolResult(f"Caffeine entry {entry_id} not found.")
+            if updates.get("consumed_on"):
+                try:
+                    entry.consumed_on = dt.date.fromisoformat(
+                        str(updates["consumed_on"])
+                    )
+                except ValueError:
+                    pass
+            if (
+                updates.get("time_bucket")
+                and updates["time_bucket"] in ALLOWED_TIME_BUCKETS
+            ):
+                entry.time_bucket = updates["time_bucket"]
+            if "amount_mg" in updates and updates["amount_mg"] is not None:
+                try:
+                    entry.amount_mg = int(updates["amount_mg"])
+                except (ValueError, TypeError):
+                    pass
+            if "source" in updates:
+                entry.source = str(updates["source"] or "").strip() or None
+            if "notes" in updates:
+                entry.notes = str(updates["notes"] or "").strip() or None
+            session.commit()
+            return ToolResult(
+                f"Updated caffeine entry {entry_id}.",
+                entry_id=entry_id,
+                entry_type="caffeine",
+            )
+
+        return ToolResult(f"Unknown entry type: {entry_type}")
+
+    if name == "delete_entry":
+        entry_id = str(args.get("entry_id") or "").strip()
+        entry_type = str(args.get("entry_type") or "").strip()
+        if not entry_id or not entry_type:
+            return ToolResult("entry_id and entry_type are required.")
+
+        model_map = {
+            "nutrition": NutritionLog,
+            "sleep": SleepEntry,
+            "workout": WorkoutEntry,
+            "caffeine": CaffeineEntry,
+            "meal": Meal,
+        }
+        model = model_map.get(entry_type)
+        if not model:
+            return ToolResult(f"Unknown entry type: {entry_type}")
+        obj = session.get(model, entry_id)
+        if not obj:
+            return ToolResult(f"{entry_type} entry {entry_id} not found.")
+        session.delete(obj)
+        session.commit()
+        return ToolResult(f"Deleted {entry_type} entry {entry_id}.")
 
     if name == "ask_followup":
-        return str(args.get("question") or "Could you provide more details?")
+        return ToolResult(
+            str(args.get("question") or "Could you provide more details?")
+        )
 
-    return f"Unknown action: {name}"
+    return ToolResult(f"Unknown action: {name}")
 
 
 _NUTRITION_FIELDS = [

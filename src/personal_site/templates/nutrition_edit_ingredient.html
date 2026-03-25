@@ -32,31 +32,31 @@
         <div class="form-grid">
             <label>
                 Calories
-                <input type="number" name="calories" min="0" step="0.1" value="{{ ingredient.calories if ingredient.calories is not none else '' }}" />
+                <input type="number" name="calories" min="0" step="any" value="{{ ingredient.calories if ingredient.calories is not none else '' }}" />
             </label>
             <label>
                 Protein (g)
-                <input type="number" name="protein_g" min="0" step="0.1" value="{{ ingredient.protein_g if ingredient.protein_g is not none else '' }}" />
+                <input type="number" name="protein_g" min="0" step="any" value="{{ ingredient.protein_g if ingredient.protein_g is not none else '' }}" />
             </label>
             <label>
                 Carbs (g)
-                <input type="number" name="carbs_g" min="0" step="0.1" value="{{ ingredient.carbs_g if ingredient.carbs_g is not none else '' }}" />
+                <input type="number" name="carbs_g" min="0" step="any" value="{{ ingredient.carbs_g if ingredient.carbs_g is not none else '' }}" />
             </label>
             <label>
                 Fat (g)
-                <input type="number" name="fat_g" min="0" step="0.1" value="{{ ingredient.fat_g if ingredient.fat_g is not none else '' }}" />
+                <input type="number" name="fat_g" min="0" step="any" value="{{ ingredient.fat_g if ingredient.fat_g is not none else '' }}" />
             </label>
             <label>
                 Fiber (g)
-                <input type="number" name="fiber_g" min="0" step="0.1" value="{{ ingredient.fiber_g if ingredient.fiber_g is not none else '' }}" />
+                <input type="number" name="fiber_g" min="0" step="any" value="{{ ingredient.fiber_g if ingredient.fiber_g is not none else '' }}" />
             </label>
             <label>
                 Sugar (g)
-                <input type="number" name="sugar_g" min="0" step="0.1" value="{{ ingredient.sugar_g if ingredient.sugar_g is not none else '' }}" />
+                <input type="number" name="sugar_g" min="0" step="any" value="{{ ingredient.sugar_g if ingredient.sugar_g is not none else '' }}" />
             </label>
             <label>
                 Caffeine (mg)
-                <input type="number" name="caffeine_mg" min="0" step="0.1" value="{{ ingredient.caffeine_mg if ingredient.caffeine_mg is not none else '' }}" />
+                <input type="number" name="caffeine_mg" min="0" step="any" value="{{ ingredient.caffeine_mg if ingredient.caffeine_mg is not none else '' }}" />
             </label>
         </div>
 

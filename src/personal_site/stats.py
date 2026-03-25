@@ -19,13 +19,30 @@ def _is_htmx() -> bool:
     return request.headers.get("HX-Request") == "true"
 
 
+def _client_today() -> dt.date:
+    """Return the client's local date using the tz_offset query param (minutes
+    offset from UTC, same sign as JS ``getTimezoneOffset``). Falls back to the
+    server's local date."""
+    raw = request.args.get("tz_offset", "")
+    if raw:
+        try:
+            offset_min = int(raw)
+            # JS getTimezoneOffset returns the opposite sign of UTC offset
+            client_tz = dt.timezone(dt.timedelta(minutes=-offset_min))
+            return dt.datetime.now(client_tz).date()
+        except (ValueError, OverflowError):
+            pass
+    return dt.date.today()
+
+
 def _parse_period() -> tuple[dt.date, dt.date, str]:
     period = request.args.get("period", "week")
     date_raw = request.args.get("date", "")
+    today = _client_today()
     try:
-        ref = dt.date.fromisoformat(date_raw) if date_raw else dt.date.today()
+        ref = dt.date.fromisoformat(date_raw) if date_raw else today
     except ValueError:
-        ref = dt.date.today()
+        ref = today
 
     if period == "month":
         start = ref.replace(day=1)
@@ -63,10 +80,11 @@ def index():
             nutrition={},
         )
 
+    today = _client_today()
     with SessionLocal() as session:
-        w = workout_stats(session, start, end)
-        s = sleep_stats(session, start, end)
-        n = nutrition_stats(session, start, end)
+        w = workout_stats(session, start, end, today=today)
+        s = sleep_stats(session, start, end, today=today)
+        n = nutrition_stats(session, start, end, today=today)
 
     return render_template(
         "stats.html",
@@ -86,8 +104,9 @@ def api_workouts():
     if SessionLocal is None:
         return jsonify({}), 503
     start, end, period = _parse_period()
+    today = _client_today()
     with SessionLocal() as session:
-        return jsonify(workout_stats(session, start, end))
+        return jsonify(workout_stats(session, start, end, today=today))
 
 
 @bp.get("/api/sleep")
@@ -96,8 +115,9 @@ def api_sleep():
     if SessionLocal is None:
         return jsonify({}), 503
     start, end, period = _parse_period()
+    today = _client_today()
     with SessionLocal() as session:
-        return jsonify(sleep_stats(session, start, end))
+        return jsonify(sleep_stats(session, start, end, today=today))
 
 
 @bp.get("/api/nutrition")
@@ -106,5 +126,6 @@ def api_nutrition():
     if SessionLocal is None:
         return jsonify({}), 503
     start, end, period = _parse_period()
+    today = _client_today()
     with SessionLocal() as session:
-        return jsonify(nutrition_stats(session, start, end))
+        return jsonify(nutrition_stats(session, start, end, today=today))

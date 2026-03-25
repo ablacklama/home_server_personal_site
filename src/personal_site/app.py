@@ -5,7 +5,10 @@ import threading
 import time
 from collections import deque
 
-from flask import Flask, jsonify, redirect, request, url_for
+import datetime as dt
+
+from flask import Flask, jsonify, render_template, request
+from sqlalchemy import select
 
 from . import ai_models  # noqa: F401
 from . import caffeine_models  # noqa: F401
@@ -107,7 +110,129 @@ def create_app() -> Flask:
 
     @app.get("/")
     def index():
-        return redirect(url_for("chat.index"))
+        from .caffeine_models import CaffeineEntry
+        from .nutrition_models import NutritionLog
+        from .sleep_models import SleepEntry
+        from .workouts_models import WorkoutEntry, WorkoutType
+
+        today = dt.date.today()
+        today_label = today.strftime("%A, %B %-d")
+
+        empty = {
+            "title": "Home",
+            "today_label": today_label,
+            "sleep": None,
+            "nutrition": {
+                "calories": 0,
+                "protein_g": 0,
+                "carbs_g": 0,
+                "fat_g": 0,
+                "sugar_g": 0,
+                "meals": [],
+            },
+            "workouts": [],
+            "caffeine_mg": 0,
+        }
+
+        SessionLocal = app.session  # type: ignore[attr-defined]
+        if SessionLocal is None:
+            return render_template("home.html", **empty)
+
+        with SessionLocal() as session:
+            # Sleep
+            sleep_entry = session.scalars(
+                select(SleepEntry)
+                .where(SleepEntry.slept_on == today)
+                .order_by(SleepEntry.created_at.desc())
+                .limit(1)
+            ).first()
+            sleep_data = None
+            if sleep_entry:
+                sleep_data = {
+                    "hours": sleep_entry.duration_minutes // 60,
+                    "minutes": sleep_entry.duration_minutes % 60,
+                    "quality": sleep_entry.quality,
+                }
+
+            # Nutrition
+            logs = list(
+                session.scalars(
+                    select(NutritionLog).where(NutritionLog.logged_on == today)
+                ).all()
+            )
+            total_cal = 0.0
+            total_p = 0.0
+            total_c = 0.0
+            total_f = 0.0
+            total_s = 0.0
+            meal_summaries: list[dict] = []
+            for log in logs:
+                cal = log.total_calories
+                total_cal += cal
+                total_p += log.total_protein_g
+                total_c += log.total_carbs_g
+                total_f += log.total_fat_g
+                total_s += log.total_sugar_g
+                name = log.meal.name if log.meal else "Ad-hoc"
+                if not log.meal and log.items:
+                    names = [it.ingredient.name for it in log.items[:3]]
+                    name = ", ".join(names)
+                    if len(log.items) > 3:
+                        name += f" +{len(log.items) - 3}"
+                meal_summaries.append(
+                    {
+                        "name": name,
+                        "time_bucket": log.time_bucket,
+                        "calories": cal,
+                    }
+                )
+            nutrition_data = {
+                "calories": total_cal,
+                "protein_g": total_p,
+                "carbs_g": total_c,
+                "fat_g": total_f,
+                "sugar_g": total_s,
+                "meals": meal_summaries,
+            }
+
+            # Workouts
+            workout_entries = list(
+                session.scalars(
+                    select(WorkoutEntry).where(WorkoutEntry.performed_on == today)
+                ).all()
+            )
+            type_ids = {e.workout_type_id for e in workout_entries}
+            type_names = {}
+            if type_ids:
+                for wt in session.scalars(
+                    select(WorkoutType).where(WorkoutType.id.in_(type_ids))
+                ).all():
+                    type_names[wt.id] = wt.name
+            workout_data = [
+                {
+                    "name": type_names.get(e.workout_type_id, "Workout"),
+                    "time_bucket": e.time_bucket or "",
+                }
+                for e in workout_entries
+            ]
+
+            # Caffeine
+            caffeine_total = sum(
+                e.amount_mg
+                for e in session.scalars(
+                    select(CaffeineEntry).where(CaffeineEntry.consumed_on == today)
+                ).all()
+            )
+
+        return render_template(
+            "home.html",
+            title="Home",
+            today_label=today_label,
+            sleep=sleep_data,
+            nutrition=nutrition_data,
+            workouts=workout_data,
+            caffeine_mg=caffeine_total,
+        )
 
     @app.get("/healthz")
     def healthz():

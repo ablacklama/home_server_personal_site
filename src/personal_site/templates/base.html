@@ -21,7 +21,7 @@
 <body>
   <header class="site-header">
     <nav class="nav">
-      <a class="brand" href="{{ url_for('chat.index') }}">Personal Site</a>
+      <a class="brand" href="/">Personal Site</a>
       <button class="nav-toggle" aria-label="Menu" aria-expanded="false">
         <span></span><span></span><span></span>
       </button>
@@ -29,7 +29,6 @@
         <a class="nav-link" href="{{ url_for('workouts.index') }}">Workouts</a>
         <a class="nav-link" href="{{ url_for('sleep.index') }}">Sleep</a>
         <a class="nav-link" href="{{ url_for('nutrition.index') }}">Nutrition</a>
-        <a class="nav-link" href="{{ url_for('chat.index') }}">Chat</a>
         <a class="nav-link" href="{{ url_for('stats.index') }}">Stats</a>
         <a class="nav-link" href="{{ url_for('preferences.index') }}">Prefs</a>
         <label class="theme-switch">
@@ -52,6 +51,176 @@
       <small>Hosted on my home server.</small>
     </div>
   </footer>
+
+  {% if not hide_chat_fab %}
+  <button class="chat-fab" id="chat-fab" aria-label="Open chat">
+    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    </svg>
+  </button>
+
+  <div class="chat-widget" id="chat-widget" style="display:none">
+    <div class="chat-widget__header">
+      <span class="chat-widget__title">Chat</span>
+      <div class="chat-widget__actions">
+        <a href="{{ url_for('chat.index') }}" class="chat-widget__expand" title="Full page">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
+            <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
+          </svg>
+        </a>
+        <button class="chat-widget__close" id="chat-widget-close" aria-label="Close chat">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+    <div class="chat-widget__messages" id="chat-widget-messages"></div>
+    <form class="chat-widget__input" id="chat-widget-form">
+      <input type="text" name="message" placeholder="Type a message..." autocomplete="off" required />
+      <button type="submit">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+        </svg>
+      </button>
+    </form>
+  </div>
+
+  <script>
+  (function () {
+    var fab = document.getElementById("chat-fab");
+    var widget = document.getElementById("chat-widget");
+    var closeBtn = document.getElementById("chat-widget-close");
+    var form = document.getElementById("chat-widget-form");
+    var msgDiv = document.getElementById("chat-widget-messages");
+    var convId = null;
+    var pollTimer = null;
+    var lastMsgId = null;
+
+    function open() {
+      widget.style.display = "flex";
+      fab.style.display = "none";
+      if (!convId) initConversation();
+    }
+
+    function close() {
+      widget.style.display = "none";
+      fab.style.display = "flex";
+      if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    }
+
+    fab.addEventListener("click", open);
+    closeBtn.addEventListener("click", close);
+
+    function scrollBottom() {
+      msgDiv.scrollTop = msgDiv.scrollHeight;
+    }
+
+    function renderMsg(msg) {
+      var el = document.createElement("div");
+      var kind = msg.kind || "text";
+      var role = msg.role || "assistant";
+      if (role === "user") {
+        el.className = "chat-bubble chat-bubble--user";
+      } else if (kind === "status") {
+        el.className = "chat-bubble chat-bubble--status";
+      } else if (kind === "info") {
+        el.className = "chat-bubble chat-bubble--info";
+      } else if (kind === "error") {
+        el.className = "chat-bubble chat-bubble--error";
+      } else {
+        el.className = "chat-bubble chat-bubble--assistant";
+      }
+      el.setAttribute("data-msg-id", msg.id || "");
+      el.setAttribute("data-msg-kind", kind);
+      if (kind === "status") {
+        el.innerHTML = '<span class="typing-dots"><span></span><span></span><span></span></span> ' + msg.content;
+      } else {
+        el.innerHTML = '<div class="chat-bubble__content">' + msg.html + '</div>';
+      }
+      return el;
+    }
+
+    function addMsg(msg) {
+      // Deduplicate
+      if (msg.id && msgDiv.querySelector('[data-msg-id="' + msg.id + '"]')) return;
+      // Remove old status messages when real message arrives
+      var kind = msg.kind || "text";
+      if (kind !== "status") {
+        msgDiv.querySelectorAll('[data-msg-kind="status"]').forEach(function(s){ s.remove(); });
+      }
+      msgDiv.appendChild(renderMsg(msg));
+      scrollBottom();
+    }
+
+    function initConversation() {
+      fetch("{{ url_for('chat.create_conversation') }}", { method: "POST", headers: {"X-Requested-With": "XMLHttpRequest"} })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          convId = data.id;
+          startPoll();
+        });
+    }
+
+    function startPoll() {
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = setInterval(poll, 2000);
+    }
+
+    function poll() {
+      if (!convId) return;
+      var url = "{{ url_for('chat.widget_poll', conv_id='__CID__') }}".replace("__CID__", convId);
+      if (lastMsgId) url += "?after=" + lastMsgId;
+      fetch(url)
+        .then(function(r) { return r.json(); })
+        .then(function(msgs) {
+          if (!msgs || !msgs.length) return;
+          msgs.forEach(function(m) {
+            addMsg(m);
+            if (m.kind !== "status") lastMsgId = m.id;
+          });
+        })
+        .catch(function(){});
+    }
+
+    form.addEventListener("submit", function(e) {
+      e.preventDefault();
+      var input = form.querySelector("input[name='message']");
+      var text = input.value.trim();
+      if (!text) return;
+      input.value = "";
+
+      // Show user message immediately
+      addMsg({ id: "tmp-" + Date.now(), role: "user", content: text, html: text, kind: "text" });
+
+      // Show typing indicator
+      addMsg({ id: "typing-tmp", role: "assistant", content: "Thinking…", html: "Thinking…", kind: "status" });
+
+      if (!convId) {
+        fetch("{{ url_for('chat.create_conversation') }}", { method: "POST", headers: {"X-Requested-With": "XMLHttpRequest"} })
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            convId = data.id;
+            startPoll();
+            sendMessage(text);
+          });
+      } else {
+        sendMessage(text);
+      }
+    });
+
+    function sendMessage(text) {
+      var url = "{{ url_for('chat.widget_send', conv_id='__CID__') }}".replace("__CID__", convId);
+      fetch(url, {
+        method: "POST",
+        headers: {"Content-Type": "application/x-www-form-urlencoded", "X-Requested-With": "XMLHttpRequest"},
+        body: "message=" + encodeURIComponent(text),
+      });
+    }
+  })();
+  </script>
+  {% endif %}
 </body>
 
 </html>

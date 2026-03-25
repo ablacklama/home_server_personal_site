@@ -904,6 +904,14 @@ button:active,
   padding: 4px 14px;
 }
 
+.chat-bubble--info {
+  align-self: flex-start;
+  background: var(--alert-success-bg);
+  color: var(--alert-success-fg);
+  border: 1px solid var(--alert-success-border);
+  font-size: 0.82rem;
+}
+
 .chat-bubble--error {
   align-self: flex-start;
   background: var(--alert-error-bg);
@@ -1025,6 +1033,237 @@ button:active,
   width: 18px;
   height: 18px;
   accent-color: var(--accent);
+}
+
+/* ================================================================
+   DAY SUMMARY (home page)
+   ================================================================ */
+
+.day-summary {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.summary-card {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  box-shadow: var(--shadow-card);
+  animation: fade-up 300ms ease both;
+}
+
+.summary-card--empty {
+  opacity: 0.55;
+}
+
+.summary-card__icon {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  background: var(--accent-glow);
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.summary-card__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.summary-card__value {
+  font-size: 1.3rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.summary-card__label {
+  font-size: 0.82rem;
+  color: var(--fg-secondary);
+  margin-top: 2px;
+}
+
+.summary-meals {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.summary-meals li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+  border-top: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+
+.summary-meals__name {
+  font-weight: 500;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.summary-meals__meta {
+  color: var(--muted);
+  font-size: 0.78rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ================================================================
+   FLOATING CHAT WIDGET
+   ================================================================ */
+
+.chat-fab {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 200;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: none;
+  background: var(--accent);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  transition: transform 160ms ease, box-shadow 160ms ease;
+  padding: 0;
+  margin: 0;
+}
+
+.chat-fab:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+  background: var(--accent-strong);
+}
+
+.chat-fab:active {
+  transform: scale(0.95);
+}
+
+.chat-widget {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 201;
+  width: calc(100vw - 24px);
+  max-width: 400px;
+  height: 500px;
+  max-height: calc(100vh - 100px);
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  animation: widget-pop 200ms ease;
+}
+
+@keyframes widget-pop {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.chat-widget__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+  flex-shrink: 0;
+}
+
+.chat-widget__title {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.chat-widget__actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.chat-widget__expand,
+.chat-widget__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: none;
+  color: var(--fg-secondary);
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+  padding: 0;
+  margin: 0;
+}
+
+.chat-widget__expand:hover,
+.chat-widget__close:hover {
+  background: var(--input-bg);
+  color: var(--fg);
+}
+
+.chat-widget__messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chat-widget__input {
+  display: flex;
+  gap: 6px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--border);
+  background: var(--card);
+  flex-shrink: 0;
+}
+
+.chat-widget__input input {
+  flex: 1;
+  margin-top: 0;
+  padding: 8px 10px;
+  font-size: 14px;
+}
+
+.chat-widget__input button {
+  margin-top: 0;
+  padding: 8px 10px;
+  flex-shrink: 0;
 }
 
 /* ================================================================
@@ -1229,5 +1468,15 @@ button:active,
   /* Subnav */
   .subnav a {
     flex: none;
+  }
+
+  /* Day summary */
+  .day-summary {
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+
+  .summary-card--list {
+    grid-column: span 2;
   }
 }

@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Today</h1>
+<p class="muted">{{ today_label }}</p>
+
+<div class="day-summary">
+
+    {% if sleep %}
+    <section class="summary-card">
+        <div class="summary-card__icon">sleep</div>
+        <div class="summary-card__body">
+            <div class="summary-card__value">{{ sleep.hours }}h {{ sleep.minutes }}m</div>
+            <div class="summary-card__label">Sleep{% if sleep.quality %} · {{ sleep.quality }}/5{% endif %}</div>
+        </div>
+    </section>
+    {% else %}
+    <section class="summary-card summary-card--empty">
+        <div class="summary-card__icon">sleep</div>
+        <div class="summary-card__body">
+            <div class="summary-card__value">--</div>
+            <div class="summary-card__label">No sleep logged</div>
+        </div>
+    </section>
+    {% endif %}
+
+    <section class="summary-card">
+        <div class="summary-card__icon">nutrition</div>
+        <div class="summary-card__body">
+            <div class="summary-card__value">{{ "%.0f"|format(nutrition.calories) }} cal</div>
+            <div class="summary-card__label">
+                {{ "%.0f"|format(nutrition.protein_g) }}g P
+                · {{ "%.0f"|format(nutrition.carbs_g) }}g C
+                · {{ "%.0f"|format(nutrition.fat_g) }}g F
+                {% if nutrition.sugar_g > 0 %} · {{ "%.0f"|format(nutrition.sugar_g) }}g sugar{% endif %}
+            </div>
+        </div>
+    </section>
+
+    {% if nutrition.meals %}
+    <section class="summary-card summary-card--list">
+        <div class="summary-card__icon">meals</div>
+        <div class="summary-card__body">
+            <div class="summary-card__label">Meals today</div>
+            <ul class="summary-meals">
+                {% for meal in nutrition.meals %}
+                <li>
+                    <span class="summary-meals__name">{{ meal.name }}</span>
+                    <span class="summary-meals__meta">{{ meal.time_bucket }} · {{ "%.0f"|format(meal.calories) }} cal</span>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </section>
+    {% endif %}
+
+    {% if workouts %}
+    <section class="summary-card summary-card--list">
+        <div class="summary-card__icon">workouts</div>
+        <div class="summary-card__body">
+            <div class="summary-card__label">Workouts</div>
+            <ul class="summary-meals">
+                {% for w in workouts %}
+                <li>
+                    <span class="summary-meals__name">{{ w.name }}</span>
+                    <span class="summary-meals__meta">{{ w.time_bucket }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </section>
+    {% else %}
+    <section class="summary-card summary-card--empty">
+        <div class="summary-card__icon">workouts</div>
+        <div class="summary-card__body">
+            <div class="summary-card__value">--</div>
+            <div class="summary-card__label">No workouts</div>
+        </div>
+    </section>
+    {% endif %}
+
+    {% if caffeine_mg > 0 %}
+    <section class="summary-card">
+        <div class="summary-card__icon">caffeine</div>
+        <div class="summary-card__body">
+            <div class="summary-card__value">{{ caffeine_mg }} mg</div>
+            <div class="summary-card__label">Caffeine</div>
+        </div>
+    </section>
+    {% endif %}
+
+</div>
+{% endblock %}

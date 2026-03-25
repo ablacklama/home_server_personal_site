@@ -4,6 +4,6 @@
 {% set kind = '' %}
 {% if msg is mapping %}{% if msg.meta is defined and msg.meta %}{% set kind = msg.meta.get('kind', '') %}{% endif %}
 {% elif msg['meta'] is defined and msg['meta'] %}{% set kind = msg['meta'].get('kind', '') %}{% endif %}
-<div class="chat-bubble chat-bubble--{{ role }}{% if kind == 'status' %} chat-bubble--status{% endif %}{% if kind == 'error' %} chat-bubble--error{% endif %}" data-msg-id="{{ mid }}" data-msg-kind="{{ kind }}">
+<div class="chat-bubble chat-bubble--{{ role }}{% if kind == 'status' %} chat-bubble--status{% endif %}{% if kind == 'error' %} chat-bubble--error{% endif %}{% if kind == 'info' %} chat-bubble--info{% endif %}" data-msg-id="{{ mid }}" data-msg-kind="{{ kind }}">
     <div class="chat-bubble__content">{% if kind == 'status' %}<span class="typing-dots"><span></span><span></span><span></span></span> {{ content }}{% elif kind == 'error' %}{{ content }}{% else %}{{ content | markdown | safe }}{% endif %}</div>
 </div>

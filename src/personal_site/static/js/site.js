@@ -104,6 +104,25 @@
   }
 })();
 
+// Set date inputs to the client's local date.
+// The server sets a default but it may differ if the server timezone ≠ device timezone.
+(() => {
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, "0");
+  const dd = String(today.getDate()).padStart(2, "0");
+  const localDate = yyyy + "-" + mm + "-" + dd;
+
+  document.querySelectorAll('input[type="date"]').forEach((input) => {
+    // Only override if the input has the server-set "today" value
+    // (not user-edited or pre-filled for editing)
+    if (input.dataset.noAutodate) return;
+    if (input.value && input.value === input.defaultValue) {
+      input.value = localDate;
+    }
+  });
+})();
+
 // Service worker registration
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("/static/sw.js");
