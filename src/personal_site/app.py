@@ -21,6 +21,7 @@ from .db import (
     Base,
     create_engine_and_sessionmaker,
     ensure_sqlite_chat_schema,
+    ensure_sqlite_goals_schema,
     ensure_sqlite_workouts_schema,
 )
 from .notify import NotificationError, NtfyConfig, listen_ntfy, send_ntfy
@@ -53,6 +54,7 @@ def create_app() -> Flask:
             Base.metadata.create_all(bind=engine)
             ensure_sqlite_workouts_schema(engine)
             ensure_sqlite_chat_schema(engine)
+            ensure_sqlite_goals_schema(engine)
             app.session = SessionLocal  # type: ignore[attr-defined]
         except Exception:
             app.logger.exception("Database initialization failed")
@@ -112,11 +114,22 @@ def create_app() -> Flask:
     def index():
         from .caffeine_models import CaffeineEntry
         from .nutrition_models import NutritionLog
+        from .preferences_models import UserPreferences
         from .sleep_models import SleepEntry
         from .workouts_models import WorkoutEntry, WorkoutType
 
         today = dt.date.today()
         today_label = today.strftime("%A, %B %-d")
+
+        default_goals = {
+            "calories": None,
+            "protein_g": None,
+            "carbs_g": None,
+            "fat_g": None,
+            "sleep_hours": None,
+            "workouts_per_week": None,
+            "caffeine_mg": None,
+        }
 
         empty = {
             "title": "Home",
@@ -132,6 +145,7 @@ def create_app() -> Flask:
             },
             "workouts": [],
             "caffeine_mg": 0,
+            "goals": default_goals,
         }
 
         SessionLocal = app.session  # type: ignore[attr-defined]
@@ -224,6 +238,31 @@ def create_app() -> Flask:
                 ).all()
             )
 
+            # Goals
+            prefs = session.scalars(select(UserPreferences).limit(1)).first()
+            goals = dict(default_goals)
+            if prefs:
+                goals["calories"] = prefs.goal_calories
+                goals["protein_g"] = prefs.goal_protein_g
+                goals["carbs_g"] = prefs.goal_carbs_g
+                goals["fat_g"] = prefs.goal_fat_g
+                goals["sleep_hours"] = prefs.goal_sleep_hours
+                goals["workouts_per_week"] = prefs.goal_workouts_per_week
+                goals["caffeine_mg"] = prefs.goal_caffeine_mg
+
+            # Weekly workout count (for goal progress)
+            week_start = today - dt.timedelta(days=today.weekday())
+            workouts_this_week = len(
+                list(
+                    session.scalars(
+                        select(WorkoutEntry).where(
+                            WorkoutEntry.performed_on >= week_start,
+                            WorkoutEntry.performed_on <= today,
+                        )
+                    ).all()
+                )
+            )
+
         return render_template(
             "home.html",
             title="Home",
@@ -232,6 +271,8 @@ def create_app() -> Flask:
             nutrition=nutrition_data,
             workouts=workout_data,
             caffeine_mg=caffeine_total,
+            goals=goals,
+            workouts_this_week=workouts_this_week,
         )
 
     @app.get("/healthz")

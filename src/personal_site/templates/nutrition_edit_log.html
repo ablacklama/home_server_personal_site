@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="subnav">
+    <a href="{{ url_for('nutrition.index') }}">Log</a>
+    <a href="{{ url_for('nutrition.ingredients_index') }}">Ingredients</a>
+    <a href="{{ url_for('nutrition.meals_index') }}">Meals</a>
+</div>
+
+<h1>Edit Log</h1>
+
+{% if error is defined and error %}
+<div class="alert alert--error">{{ error }}</div>
+{% endif %}
+
+<section class="card">
+    <form method="post"
+          action="{{ url_for('nutrition.edit_log', log_id=log.id) }}"
+          hx-post="{{ url_for('nutrition.edit_log', log_id=log.id) }}"
+          hx-target="main" hx-select="main > *" hx-swap="innerHTML"
+          id="edit-log-form">
+
+        <label>
+            Date
+            <input type="date" name="logged_on" value="{{ log.logged_on.isoformat() }}" data-no-autodate />
+        </label>
+
+        <label>
+            Time
+            <select name="time_bucket">
+                <option value="morning" {% if log.time_bucket == 'morning' %}selected{% endif %}>Morning (5am–12pm)</option>
+                <option value="afternoon" {% if log.time_bucket == 'afternoon' %}selected{% endif %}>Afternoon (12pm–5pm)</option>
+                <option value="night" {% if log.time_bucket == 'night' %}selected{% endif %}>Night (5pm–5am)</option>
+            </select>
+        </label>
+
+        <label>
+            Saved meal (optional)
+            <select name="meal_id" id="edit-meal-select">
+                <option value="">— none —</option>
+                {% for m in meals %}
+                <option value="{{ m.id }}" {% if log.meal_id == m.id %}selected{% endif %}>{{ m.name }}</option>
+                {% endfor %}
+            </select>
+        </label>
+
+        <div id="edit-ingredient-rows">
+            <h3>Ingredients</h3>
+            <div class="ingredient-row-template" style="display:none">
+                <div class="ingredient-row">
+                    <select name="ingredient_id" class="ingredient-select">
+                        <option value="">Choose...</option>
+                        {% for ing in ingredients %}
+                        <option value="{{ ing.id }}">{{ ing.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <input type="number" name="servings" value="1" min="0.1" step="any" placeholder="servings" />
+                    <button type="button" class="button--ghost remove-row-btn">Remove</button>
+                </div>
+            </div>
+            <div id="edit-ingredient-rows-container"></div>
+            <button type="button" id="edit-add-ingredient-btn" class="button--ghost">+ Add ingredient</button>
+        </div>
+
+        <label>
+            Notes
+            <textarea name="notes" rows="2">{{ log.notes or '' }}</textarea>
+        </label>
+
+        <div class="form-row">
+            <button type="submit" class="btn btn--primary">Save Changes</button>
+            <a href="{{ url_for('nutrition.index') }}" class="btn">Cancel</a>
+        </div>
+    </form>
+</section>
+
+<script>
+(function () {
+    const container = document.getElementById("edit-ingredient-rows-container");
+    const addBtn = document.getElementById("edit-add-ingredient-btn");
+    const template = document.querySelector(".ingredient-row-template .ingredient-row");
+    const mealSelect = document.getElementById("edit-meal-select");
+
+    function addRow(ingredientId, servings) {
+        const row = template.cloneNode(true);
+        if (ingredientId) {
+            row.querySelector(".ingredient-select").value = ingredientId;
+        }
+        if (servings) {
+            row.querySelector("input[name='servings']").value = servings;
+        }
+        row.querySelector(".remove-row-btn").addEventListener("click", function () {
+            row.remove();
+        });
+        container.appendChild(row);
+    }
+
+    addBtn.addEventListener("click", function () { addRow("", "1"); });
+
+    // Auto-populate from meal selection
+    mealSelect.addEventListener("change", function () {
+        const mealId = mealSelect.value;
+        if (!mealId) return;
+        fetch("{{ url_for('nutrition.meal_json', meal_id='__MEAL_ID__') }}".replace("__MEAL_ID__", mealId))
+            .then(r => r.json())
+            .then(data => {
+                container.innerHTML = "";
+                if (data.ingredients) {
+                    data.ingredients.forEach(function (mi) {
+                        addRow(mi.ingredient_id, mi.servings);
+                    });
+                }
+            });
+    });
+
+    // Pre-populate existing log items
+    var existing = {{ log.items | map(attribute='ingredient_id') | list | tojson }};
+    var existingServings = {{ log.items | map(attribute='servings') | list | tojson }};
+    for (var i = 0; i < existing.length; i++) {
+        addRow(existing[i], existingServings[i]);
+    }
+
+    if (existing.length === 0) {
+        addRow("", "1");
+    }
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block head_extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<h1>Workout Stats</h1>
+
+{% with back_route='stats.index', current_route='stats.workouts_detail' %}
+{% include "partials/stats_period_selector.html" %}
+{% endwith %}
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-card__value">{{ workouts.get('total', 0) }}</div>
+        <div class="stat-card__label">Total Workouts</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card__value">{{ workouts.get('streak', 0) }}</div>
+        <div class="stat-card__label">Day Streak</div>
+    </div>
+</div>
+
+<div class="charts-grid">
+    <section class="card chart-container">
+        <h2>Workouts per Day</h2>
+        <canvas id="workouts-chart"></canvas>
+    </section>
+</div>
+
+{% if workouts.get('per_type') %}
+<section class="card">
+    <h2>By Type</h2>
+    <dl class="metrics">
+        {% for name, count in workouts.per_type.items() %}
+        <div class="metric-row">
+            <dt>{{ name }}</dt>
+            <dd>{{ count }}</dd>
+        </div>
+        {% endfor %}
+    </dl>
+</section>
+{% endif %}
+
+<script>
+(function () {
+    const clrWorkout = getComputedStyle(document.documentElement).getPropertyValue("--clr-workout").trim() || "#34d399";
+
+    const chartDefaults = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
+    };
+
+    const wDaily = {{ workouts.get('daily', {}) | tojson }};
+    const wLabels = Object.keys(wDaily).sort();
+    new Chart(document.getElementById("workouts-chart"), {
+        type: "bar",
+        data: {
+            labels: wLabels,
+            datasets: [{
+                label: "Workouts",
+                data: wLabels.map(d => wDaily[d]),
+                backgroundColor: clrWorkout + "99",
+                borderColor: clrWorkout,
+                borderWidth: 1,
+                borderRadius: 3,
+            }],
+        },
+        options: chartDefaults,
+    });
+})();
+
+(function () {
+    var offset = new Date().getTimezoneOffset();
+    document.querySelectorAll("a.period-link").forEach(function (a) {
+        var url = new URL(a.href, location.origin);
+        url.searchParams.set("tz_offset", offset);
+        a.href = url.toString();
+    });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,10 @@
+<div class="period-selector">
+    <a href="{{ url_for(back_route) }}" class="period-link">&larr; All Stats</a>
+    <a href="{{ url_for(current_route, period='week') }}"
+        class="period-link {% if period == 'week' %}active{% endif %}">Week</a>
+    <a href="{{ url_for(current_route, period='month') }}"
+        class="period-link {% if period == 'month' %}active{% endif %}">Month</a>
+    <a href="{{ url_for(current_route, period='year') }}"
+        class="period-link {% if period == 'year' %}active{% endif %}">Year</a>
+</div>
+<p class="stats-range">{{ start }} to {{ end }}</p>

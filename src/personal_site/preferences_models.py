@@ -3,7 +3,7 @@ from __future__ import annotations
 import datetime as dt
 import uuid
 
-from sqlalchemy import Boolean, DateTime, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, Float, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .db import Base
@@ -25,6 +25,15 @@ class UserPreferences(Base):
     report_include: Mapped[str | None] = mapped_column(
         Text, nullable=True
     )  # JSON list e.g. '["workouts","sleep","nutrition"]'
+
+    # --- Goals ---
+    goal_calories: Mapped[float | None] = mapped_column(Float, nullable=True)
+    goal_protein_g: Mapped[float | None] = mapped_column(Float, nullable=True)
+    goal_carbs_g: Mapped[float | None] = mapped_column(Float, nullable=True)
+    goal_fat_g: Mapped[float | None] = mapped_column(Float, nullable=True)
+    goal_sleep_hours: Mapped[float | None] = mapped_column(Float, nullable=True)
+    goal_workouts_per_week: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    goal_caffeine_mg: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     updated_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True),

@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block head_extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<h1>Nutrition Stats</h1>
+
+{% with back_route='stats.index', current_route='stats.nutrition_detail' %}
+{% include "partials/stats_period_selector.html" %}
+{% endwith %}
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-card__value">{{ "%.0f"|format(nutrition.get('avg_calories', 0)) }}</div>
+        <div class="stat-card__label">Avg Calories / Day</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card__value">{{ "%.0f"|format(nutrition.get('avg_protein_g', 0)) }}g</div>
+        <div class="stat-card__label">Avg Protein / Day</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card__value">{{ "%.0f"|format(nutrition.get('avg_carbs_g', 0)) }}g</div>
+        <div class="stat-card__label">Avg Carbs / Day</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card__value">{{ "%.0f"|format(nutrition.get('avg_fat_g', 0)) }}g</div>
+        <div class="stat-card__label">Avg Fat / Day</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card__value">{{ "%.0f"|format(nutrition.get('avg_sugar_g', 0)) }}g</div>
+        <div class="stat-card__label">Avg Sugar / Day</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card__value">{{ nutrition.get('count', 0) }}</div>
+        <div class="stat-card__label">Meals Logged</div>
+    </div>
+</div>
+
+<div class="charts-grid">
+    <section class="card chart-container">
+        <h2>Daily Calories</h2>
+        <canvas id="cal-chart"></canvas>
+    </section>
+    <section class="card chart-container">
+        <h2>Daily Macros</h2>
+        <canvas id="macro-chart"></canvas>
+    </section>
+</div>
+
+<script>
+(function () {
+    const highlight = getComputedStyle(document.documentElement).getPropertyValue("--highlight").trim();
+    const clrProtein = getComputedStyle(document.documentElement).getPropertyValue("--clr-protein").trim() || "#22d3ee";
+    const clrCarbs = getComputedStyle(document.documentElement).getPropertyValue("--clr-carbs").trim() || "#facc15";
+    const clrFat = getComputedStyle(document.documentElement).getPropertyValue("--clr-fat").trim() || "#fb923c";
+
+    const chartDefaults = {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: { y: { beginAtZero: true } },
+    };
+
+    // Calories chart
+    const dailyCal = {{ nutrition.get('daily_calories', {}) | tojson }};
+    const calLabels = Object.keys(dailyCal).sort();
+    new Chart(document.getElementById("cal-chart"), {
+        type: "bar",
+        data: {
+            labels: calLabels,
+            datasets: [{
+                label: "Calories",
+                data: calLabels.map(d => dailyCal[d]),
+                backgroundColor: highlight + "99",
+                borderColor: highlight,
+                borderWidth: 1,
+                borderRadius: 3,
+            }],
+        },
+        options: { ...chartDefaults, plugins: { legend: { display: false } } },
+    });
+
+    // Macros chart
+    const dailyP = {{ nutrition.get('daily_protein', {}) | tojson }};
+    const dailyC = {{ nutrition.get('daily_carbs', {}) | tojson }};
+    const dailyF = {{ nutrition.get('daily_fat', {}) | tojson }};
+    const allDays = [...new Set([...Object.keys(dailyP), ...Object.keys(dailyC), ...Object.keys(dailyF)])].sort();
+
+    new Chart(document.getElementById("macro-chart"), {
+        type: "line",
+        data: {
+            labels: allDays,
+            datasets: [
+                {
+                    label: "Protein (g)",
+                    data: allDays.map(d => dailyP[d] || 0),
+                    borderColor: clrProtein,
+                    backgroundColor: clrProtein + "22",
+                    fill: false,
+                    tension: 0.3,
+                },
+                {
+                    label: "Carbs (g)",
+                    data: allDays.map(d => dailyC[d] || 0),
+                    borderColor: clrCarbs,
+                    backgroundColor: clrCarbs + "22",
+                    fill: false,
+                    tension: 0.3,
+                },
+                {
+                    label: "Fat (g)",
+                    data: allDays.map(d => dailyF[d] || 0),
+                    borderColor: clrFat,
+                    backgroundColor: clrFat + "22",
+                    fill: false,
+                    tension: 0.3,
+                },
+            ],
+        },
+        options: {
+            ...chartDefaults,
+            plugins: { legend: { display: true, position: "bottom" } },
+            scales: { y: { beginAtZero: true, title: { display: true, text: "grams" } } },
+        },
+    });
+})();
+
+(function () {
+    var offset = new Date().getTimezoneOffset();
+    document.querySelectorAll("a.period-link").forEach(function (a) {
+        var url = new URL(a.href, location.origin);
+        url.searchParams.set("tz_offset", offset);
+        a.href = url.toString();
+    });
+})();
+</script>
+{% endblock %}

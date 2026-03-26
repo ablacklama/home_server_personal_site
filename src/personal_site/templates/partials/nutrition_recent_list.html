@@ -11,6 +11,8 @@
                 <div class="workout-card__meta">
                     {{ log.logged_on.isoformat() }} · {{ log.time_bucket }}
                     ·
+                    <a href="{{ url_for('nutrition.edit_log_form', log_id=log.id) }}">Edit</a>
+                    ·
                     <form method="post" action="{{ url_for('nutrition.delete_log', log_id=log.id) }}"
                         hx-post="{{ url_for('nutrition.delete_log', log_id=log.id) }}"
                         hx-target="#nutrition-error"

@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block head_extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<h1>Sleep Stats</h1>
+
+{% with back_route='stats.index', current_route='stats.sleep_detail' %}
+{% include "partials/stats_period_selector.html" %}
+{% endwith %}
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-card__value">{{ sleep.get('count', 0) }}</div>
+        <div class="stat-card__label">Entries</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card__value">
+            {% if sleep.get('avg_duration_minutes') %}
+            {{ "%.1f"|format(sleep.avg_duration_minutes / 60) }}h
+            {% else %}&mdash;{% endif %}
+        </div>
+        <div class="stat-card__label">Avg Duration</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card__value">
+            {% if sleep.get('avg_quality') %}
+            {{ "%.1f"|format(sleep.avg_quality) }}/5
+            {% else %}&mdash;{% endif %}
+        </div>
+        <div class="stat-card__label">Avg Quality</div>
+    </div>
+</div>
+
+<div class="charts-grid">
+    <section class="card chart-container">
+        <h2>Sleep Duration</h2>
+        <canvas id="sleep-chart"></canvas>
+    </section>
+</div>
+
+<script>
+(function () {
+    const accentStrong = getComputedStyle(document.documentElement).getPropertyValue("--accent-strong").trim();
+    const clrSleep = getComputedStyle(document.documentElement).getPropertyValue("--clr-sleep").trim() || accentStrong;
+
+    const chartDefaults = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, title: { display: true, text: "Hours" } } },
+    };
+
+    const sDaily = {{ sleep.get('daily', {}) | tojson }};
+    const sLabels = Object.keys(sDaily).sort();
+    new Chart(document.getElementById("sleep-chart"), {
+        type: "bar",
+        data: {
+            labels: sLabels,
+            datasets: [{
+                label: "Hours",
+                data: sLabels.map(d => sDaily[d]),
+                backgroundColor: clrSleep + "99",
+                borderColor: clrSleep,
+                borderWidth: 1,
+                borderRadius: 3,
+            }],
+        },
+        options: chartDefaults,
+    });
+})();
+
+(function () {
+    var offset = new Date().getTimezoneOffset();
+    document.querySelectorAll("a.period-link").forEach(function (a) {
+        var url = new URL(a.href, location.origin);
+        url.searchParams.set("tz_offset", offset);
+        a.href = url.toString();
+    });
+})();
+</script>
+{% endblock %}

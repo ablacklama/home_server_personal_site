@@ -94,3 +94,30 @@ def ensure_sqlite_chat_schema(engine) -> None:
             )
             conn.execute(text("DROP TABLE ai_messages"))
             conn.execute(text("ALTER TABLE ai_messages_new RENAME TO ai_messages"))
+
+
+def ensure_sqlite_goals_schema(engine) -> None:
+    if getattr(engine.dialect, "name", None) != "sqlite":
+        return
+
+    with engine.begin() as conn:
+        result = conn.execute(text("PRAGMA table_info(user_preferences)"))
+        existing = {row[1] for row in result}
+
+        goal_columns = {
+            "goal_calories": "FLOAT",
+            "goal_protein_g": "FLOAT",
+            "goal_carbs_g": "FLOAT",
+            "goal_fat_g": "FLOAT",
+            "goal_sleep_hours": "FLOAT",
+            "goal_workouts_per_week": "INTEGER",
+            "goal_caffeine_mg": "FLOAT",
+        }
+
+        for col_name, col_type in goal_columns.items():
+            if col_name not in existing:
+                conn.execute(
+                    text(
+                        f"ALTER TABLE user_preferences ADD COLUMN {col_name} {col_type}"
+                    )
+                )

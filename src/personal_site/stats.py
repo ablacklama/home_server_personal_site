@@ -98,6 +98,93 @@ def index():
     )
 
 
+@bp.get("/sleep")
+def sleep_detail():
+    SessionLocal = current_app.session  # type: ignore[attr-defined]
+    start, end, period = _parse_period()
+    today = _client_today()
+
+    if SessionLocal is None:
+        return render_template(
+            "stats_sleep.html",
+            title="Sleep Stats",
+            period=period,
+            start=start.isoformat(),
+            end=end.isoformat(),
+            sleep={},
+        )
+
+    with SessionLocal() as session:
+        s = sleep_stats(session, start, end, today=today)
+
+    return render_template(
+        "stats_sleep.html",
+        title="Sleep Stats",
+        period=period,
+        start=start.isoformat(),
+        end=end.isoformat(),
+        sleep=s,
+    )
+
+
+@bp.get("/nutrition")
+def nutrition_detail():
+    SessionLocal = current_app.session  # type: ignore[attr-defined]
+    start, end, period = _parse_period()
+    today = _client_today()
+
+    if SessionLocal is None:
+        return render_template(
+            "stats_nutrition.html",
+            title="Nutrition Stats",
+            period=period,
+            start=start.isoformat(),
+            end=end.isoformat(),
+            nutrition={},
+        )
+
+    with SessionLocal() as session:
+        n = nutrition_stats(session, start, end, today=today)
+
+    return render_template(
+        "stats_nutrition.html",
+        title="Nutrition Stats",
+        period=period,
+        start=start.isoformat(),
+        end=end.isoformat(),
+        nutrition=n,
+    )
+
+
+@bp.get("/workouts")
+def workouts_detail():
+    SessionLocal = current_app.session  # type: ignore[attr-defined]
+    start, end, period = _parse_period()
+    today = _client_today()
+
+    if SessionLocal is None:
+        return render_template(
+            "stats_workouts.html",
+            title="Workout Stats",
+            period=period,
+            start=start.isoformat(),
+            end=end.isoformat(),
+            workouts={},
+        )
+
+    with SessionLocal() as session:
+        w = workout_stats(session, start, end, today=today)
+
+    return render_template(
+        "stats_workouts.html",
+        title="Workout Stats",
+        period=period,
+        start=start.isoformat(),
+        end=end.isoformat(),
+        workouts=w,
+    )
+
+
 @bp.get("/api/workouts")
 def api_workouts():
     SessionLocal = current_app.session  # type: ignore[attr-defined]

@@ -27,6 +27,17 @@ def _is_htmx() -> bool:
     return request.headers.get("HX-Request") == "true"
 
 
+GOAL_FIELDS = [
+    "goal_calories",
+    "goal_protein_g",
+    "goal_carbs_g",
+    "goal_fat_g",
+    "goal_sleep_hours",
+    "goal_workouts_per_week",
+    "goal_caffeine_mg",
+]
+
+
 def _get_or_create_prefs(session) -> UserPreferences:
     prefs = session.scalars(select(UserPreferences).limit(1)).first()
     if prefs is None:
@@ -34,6 +45,18 @@ def _get_or_create_prefs(session) -> UserPreferences:
         session.add(prefs)
         session.flush()
     return prefs
+
+
+def _prefs_to_dict(prefs: UserPreferences) -> dict:
+    d = {
+        "email": prefs.email,
+        "report_enabled": prefs.report_enabled,
+        "report_day": prefs.report_day,
+        "report_hour": prefs.report_hour,
+    }
+    for f in GOAL_FIELDS:
+        d[f] = getattr(prefs, f, None)
+    return d
 
 
 @bp.get("/")
@@ -51,12 +74,7 @@ def index():
 
     with SessionLocal() as session:
         prefs = _get_or_create_prefs(session)
-        prefs_data = {
-            "email": prefs.email,
-            "report_enabled": prefs.report_enabled,
-            "report_day": prefs.report_day,
-            "report_hour": prefs.report_hour,
-        }
+        prefs_data = _prefs_to_dict(prefs)
         included = json.loads(prefs.report_include or "[]")
         session.commit()
 
@@ -101,13 +119,20 @@ def save():
         included = request.form.getlist("report_include")
         prefs.report_include = json.dumps([s for s in included if s in SECTIONS])
 
+        # Goals
+        for f in GOAL_FIELDS:
+            raw = (request.form.get(f) or "").strip()
+            if raw:
+                try:
+                    val = int(raw) if f == "goal_workouts_per_week" else float(raw)
+                except ValueError:
+                    val = None
+                setattr(prefs, f, val)
+            else:
+                setattr(prefs, f, None)
+
         session.commit()
-        prefs_data = {
-            "email": prefs.email,
-            "report_enabled": prefs.report_enabled,
-            "report_day": prefs.report_day,
-            "report_hour": prefs.report_hour,
-        }
+        prefs_data = _prefs_to_dict(prefs)
         included_list = json.loads(prefs.report_include or "[]")
 
     ctx = {

@@ -339,6 +339,180 @@ def create_log():
         return redirect(url_for("nutrition.index"))
 
 
+@bp.get("/logs/<log_id>/edit")
+def edit_log_form(log_id: str):
+    SessionLocal = current_app.session  # type: ignore[attr-defined]
+    if SessionLocal is None:
+        return _render_index("Database is not configured"), 503
+
+    with SessionLocal() as session:
+        log = (
+            session.scalars(
+                select(NutritionLog)
+                .options(
+                    joinedload(NutritionLog.items).joinedload(
+                        NutritionLogItem.ingredient
+                    ),
+                    joinedload(NutritionLog.meal),
+                )
+                .where(NutritionLog.id == log_id)
+            )
+            .unique()
+            .first()
+        )
+        if log is None:
+            return _render_index("Log not found"), 404
+        ingredients = _all_ingredients(session)
+        meals = _all_meals(session)
+        return render_template(
+            "nutrition_edit_log.html",
+            title="Edit Log",
+            log=log,
+            ingredients=ingredients,
+            meals=meals,
+        )
+
+
+@bp.post("/logs/<log_id>/edit")
+def edit_log(log_id: str):
+    SessionLocal = current_app.session  # type: ignore[attr-defined]
+    if SessionLocal is None:
+        message = "Database is not configured"
+        if _is_htmx():
+            return _make_htmx_response(
+                "partials/nutrition_entry_response.html",
+                {
+                    "recent_logs": [],
+                    "ingredients": [],
+                    "meals": [],
+                    "error": message,
+                    "oob": True,
+                },
+                status=503,
+            )
+        return _render_index(message), 503
+
+    with SessionLocal() as session:
+        log = session.get(NutritionLog, log_id)
+        if log is None:
+            if _is_htmx():
+                return _render_log_response(session, "Log not found", status=404)
+            return _render_index("Log not found"), 404
+
+        logged_on_raw = (request.form.get("logged_on") or "").strip()
+        time_bucket = (request.form.get("time_bucket") or "").strip().lower()
+        meal_id = (request.form.get("meal_id") or "").strip() or None
+        notes = (request.form.get("notes") or "").strip() or None
+
+        # Parse date
+        if logged_on_raw:
+            try:
+                logged_on = dt.date.fromisoformat(logged_on_raw)
+            except ValueError:
+                msg = "Invalid date"
+                if _is_htmx():
+                    return _render_log_response(session, msg, status=400)
+                return _render_index(msg), 400
+        else:
+            logged_on = log.logged_on
+
+        # Time bucket
+        if time_bucket and time_bucket not in ALLOWED_TIME_BUCKETS:
+            msg = "time bucket must be morning, afternoon, or night"
+            if _is_htmx():
+                return _render_log_response(session, msg, status=400)
+            return _render_index(msg), 400
+        if not time_bucket:
+            time_bucket = log.time_bucket
+
+        # Collect ingredient rows from form
+        ingredient_ids = request.form.getlist("ingredient_id")
+        servings_raw = request.form.getlist("servings")
+
+        if not ingredient_ids or all(not i.strip() for i in ingredient_ids):
+            if meal_id:
+                meal = session.get(Meal, meal_id)
+                if meal is None:
+                    msg = "Unknown meal"
+                    if _is_htmx():
+                        return _render_log_response(session, msg, status=400)
+                    return _render_index(msg), 400
+                meal = (
+                    session.scalars(
+                        select(Meal)
+                        .options(joinedload(Meal.ingredients))
+                        .where(Meal.id == meal_id)
+                    )
+                    .unique()
+                    .one()
+                )
+                ingredient_ids = [mi.ingredient_id for mi in meal.ingredients]
+                servings_raw = [str(mi.servings) for mi in meal.ingredients]
+            else:
+                msg = "Add at least one ingredient"
+                if _is_htmx():
+                    return _render_log_response(session, msg, status=400)
+                return _render_index(msg), 400
+
+        # Validate ingredients and build new items
+        new_items: list[NutritionLogItem] = []
+        for idx, ing_id in enumerate(ingredient_ids):
+            ing_id = ing_id.strip()
+            if not ing_id:
+                continue
+            ingredient = session.get(Ingredient, ing_id)
+            if ingredient is None:
+                msg = f"Unknown ingredient (row {idx + 1})"
+                if _is_htmx():
+                    return _render_log_response(session, msg, status=400)
+                return _render_index(msg), 400
+
+            srv_raw = servings_raw[idx].strip() if idx < len(servings_raw) else "1"
+            try:
+                srv = float(srv_raw) if srv_raw else 1.0
+            except ValueError:
+                msg = f"Invalid servings for {ingredient.name}"
+                if _is_htmx():
+                    return _render_log_response(session, msg, status=400)
+                return _render_index(msg), 400
+            if srv <= 0:
+                msg = f"Servings must be > 0 for {ingredient.name}"
+                if _is_htmx():
+                    return _render_log_response(session, msg, status=400)
+                return _render_index(msg), 400
+
+            new_items.append(
+                NutritionLogItem(
+                    nutrition_log_id=log_id, ingredient_id=ing_id, servings=srv
+                )
+            )
+
+        if not new_items:
+            msg = "Add at least one ingredient"
+            if _is_htmx():
+                return _render_log_response(session, msg, status=400)
+            return _render_index(msg), 400
+
+        log.logged_on = logged_on
+        log.time_bucket = time_bucket
+        log.meal_id = meal_id
+        log.notes = notes
+
+        # Replace existing log items
+        for old_item in list(log.items):
+            session.delete(old_item)
+        session.flush()
+
+        for item in new_items:
+            session.add(item)
+
+        session.commit()
+
+        if _is_htmx():
+            return _render_log_response(session, trigger={"nutritionLogSaved": True})
+        return redirect(url_for("nutrition.index"))
+
+
 @bp.post("/logs/<log_id>/delete")
 def delete_log(log_id: str):
     SessionLocal = current_app.session  # type: ignore[attr-defined]

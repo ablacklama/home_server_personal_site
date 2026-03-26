@@ -191,4 +191,8 @@ def nutrition_stats(
         "avg_fat_g": sum(daily_fat.get(d, 0) for d in completed_days) / num_days,
         "avg_sugar_g": sum(daily_sugar.get(d, 0) for d in completed_days) / num_days,
         "daily_calories": daily_cals,
+        "daily_protein": daily_protein,
+        "daily_carbs": daily_carbs,
+        "daily_fat": daily_fat,
+        "daily_sugar": daily_sugar,
     }

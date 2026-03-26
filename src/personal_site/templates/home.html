@@ -1,91 +1,172 @@
 {% extends "base.html" %}
 
+{% set cal_goal = goals.calories or 2200 %}
+{% set sleep_goal_h = goals.sleep_hours %}
+
 {% block content %}
-<h1>Today</h1>
-<p class="muted">{{ today_label }}</p>
+<div class="dash">
 
-<div class="day-summary">
-
-    {% if sleep %}
-    <section class="summary-card">
-        <div class="summary-card__icon">sleep</div>
-        <div class="summary-card__body">
-            <div class="summary-card__value">{{ sleep.hours }}h {{ sleep.minutes }}m</div>
-            <div class="summary-card__label">Sleep{% if sleep.quality %} · {{ sleep.quality }}/5{% endif %}</div>
-        </div>
-    </section>
-    {% else %}
-    <section class="summary-card summary-card--empty">
-        <div class="summary-card__icon">sleep</div>
-        <div class="summary-card__body">
-            <div class="summary-card__value">--</div>
-            <div class="summary-card__label">No sleep logged</div>
-        </div>
-    </section>
-    {% endif %}
-
-    <section class="summary-card">
-        <div class="summary-card__icon">nutrition</div>
-        <div class="summary-card__body">
-            <div class="summary-card__value">{{ "%.0f"|format(nutrition.calories) }} cal</div>
-            <div class="summary-card__label">
-                {{ "%.0f"|format(nutrition.protein_g) }}g P
-                · {{ "%.0f"|format(nutrition.carbs_g) }}g C
-                · {{ "%.0f"|format(nutrition.fat_g) }}g F
-                {% if nutrition.sugar_g > 0 %} · {{ "%.0f"|format(nutrition.sugar_g) }}g sugar{% endif %}
+    {# ── Hero ring: calories (links to nutrition stats) ── #}
+    <a href="{{ url_for('stats.nutrition_detail') }}" class="dash-hero dash-hero--link">
+        <div class="ring-wrap">
+            <svg class="ring" viewBox="0 0 120 120">
+                <circle class="ring__track" cx="60" cy="60" r="52" />
+                <circle class="ring__fill ring__fill--cal"
+                        cx="60" cy="60" r="52"
+                        style="--pct: {{ [nutrition.calories / cal_goal * 100, 100] | min if nutrition.calories else 0 }}" />
+            </svg>
+            <div class="ring-label">
+                <span class="ring-label__value">{{ "%.0f"|format(nutrition.calories) }}</span>
+                <span class="ring-label__unit">cal</span>
             </div>
         </div>
-    </section>
+        {% if goals.calories %}
+        <p class="dash-hero__goal">Goal: {{ "%.0f"|format(goals.calories) }} cal</p>
+        {% endif %}
+        <p class="dash-hero__date">{{ today_label }}</p>
+    </a>
 
+    {# ── Macro chips row (links to nutrition stats) ── #}
+    <a href="{{ url_for('stats.nutrition_detail') }}" class="macro-row macro-row--link">
+        <div class="macro-chip">
+            <span class="macro-chip__dot macro-chip__dot--p"></span>
+            <span class="macro-chip__val">{{ "%.0f"|format(nutrition.protein_g) }}g</span>
+            <span class="macro-chip__lbl">Protein</span>
+            {% if goals.protein_g %}
+            <span class="macro-chip__goal">/ {{ "%.0f"|format(goals.protein_g) }}</span>
+            {% endif %}
+        </div>
+        <div class="macro-chip">
+            <span class="macro-chip__dot macro-chip__dot--c"></span>
+            <span class="macro-chip__val">{{ "%.0f"|format(nutrition.carbs_g) }}g</span>
+            <span class="macro-chip__lbl">Carbs</span>
+            {% if goals.carbs_g %}
+            <span class="macro-chip__goal">/ {{ "%.0f"|format(goals.carbs_g) }}</span>
+            {% endif %}
+        </div>
+        <div class="macro-chip">
+            <span class="macro-chip__dot macro-chip__dot--f"></span>
+            <span class="macro-chip__val">{{ "%.0f"|format(nutrition.fat_g) }}g</span>
+            <span class="macro-chip__lbl">Fat</span>
+            {% if goals.fat_g %}
+            <span class="macro-chip__goal">/ {{ "%.0f"|format(goals.fat_g) }}</span>
+            {% endif %}
+        </div>
+        {% if nutrition.sugar_g > 0 %}
+        <div class="macro-chip">
+            <span class="macro-chip__dot macro-chip__dot--s"></span>
+            <span class="macro-chip__val">{{ "%.0f"|format(nutrition.sugar_g) }}g</span>
+            <span class="macro-chip__lbl">Sugar</span>
+        </div>
+        {% endif %}
+    </a>
+
+    {# ── Tile grid ── #}
+    <div class="tile-grid">
+
+        {# Sleep tile #}
+        <a href="{{ url_for('stats.sleep_detail') }}" class="tile tile--sleep{% if not sleep %} tile--empty{% endif %}">
+            <div class="tile__head">
+                <svg class="tile__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                </svg>
+                <span class="tile__title">Sleep</span>
+            </div>
+            {% if sleep %}
+            <div class="tile__big">{{ sleep.hours }}<small>h</small> {{ sleep.minutes }}<small>m</small></div>
+            {% if sleep.quality %}
+            <div class="tile__sub">Quality {{ sleep.quality }}/5</div>
+            {% endif %}
+            {% if sleep_goal_h %}
+            {% set sleep_total_h = sleep.hours + sleep.minutes / 60 %}
+            <div class="tile__bar">
+                <div class="tile__bar-fill tile__bar-fill--sleep" style="width: {{ [sleep_total_h / sleep_goal_h * 100, 100] | min }}%"></div>
+            </div>
+            <div class="tile__sub">{{ "%.1f"|format(sleep_goal_h) }}h goal</div>
+            {% endif %}
+            {% else %}
+            <div class="tile__big tile__big--muted">--</div>
+            <div class="tile__sub">Not logged</div>
+            {% endif %}
+        </a>
+
+        {# Workouts tile #}
+        <a href="{{ url_for('stats.workouts_detail') }}" class="tile tile--workout{% if not workouts %} tile--empty{% endif %}">
+            <div class="tile__head">
+                <svg class="tile__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M6 8H5a4 4 0 0 0 0 8h1"/><line x1="6" y1="12" x2="18" y2="12"/>
+                </svg>
+                <span class="tile__title">Workouts</span>
+            </div>
+            {% if workouts %}
+            <div class="tile__big">{{ workouts | length }}</div>
+            <div class="tile__sub">{{ workouts[0].name }}{% if workouts | length > 1 %} +{{ workouts | length - 1 }}{% endif %}</div>
+            {% else %}
+            <div class="tile__big tile__big--muted">0</div>
+            <div class="tile__sub">Rest day</div>
+            {% endif %}
+            {% if goals.workouts_per_week %}
+            <div class="tile__bar">
+                <div class="tile__bar-fill tile__bar-fill--workout" style="width: {{ [workouts_this_week / goals.workouts_per_week * 100, 100] | min }}%"></div>
+            </div>
+            <div class="tile__sub">{{ workouts_this_week }}/{{ goals.workouts_per_week }} this week</div>
+            {% endif %}
+        </a>
+
+        {# Caffeine tile #}
+        <a href="{{ url_for('stats.nutrition_detail') }}" class="tile tile--caffeine">
+            <div class="tile__head">
+                <svg class="tile__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V8z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/>
+                </svg>
+                <span class="tile__title">Caffeine</span>
+            </div>
+            <div class="tile__big">{{ caffeine_mg }}<small>mg</small></div>
+            {% if goals.caffeine_mg %}
+            <div class="tile__bar">
+                <div class="tile__bar-fill tile__bar-fill--caffeine" style="width: {{ [caffeine_mg / goals.caffeine_mg * 100, 100] | min }}%"></div>
+            </div>
+            <div class="tile__sub">{{ "%.0f"|format(goals.caffeine_mg) }}mg limit</div>
+            {% endif %}
+        </a>
+
+    </div>
+
+    {# ── Meals list ── #}
     {% if nutrition.meals %}
-    <section class="summary-card summary-card--list">
-        <div class="summary-card__icon">meals</div>
-        <div class="summary-card__body">
-            <div class="summary-card__label">Meals today</div>
-            <ul class="summary-meals">
-                {% for meal in nutrition.meals %}
-                <li>
-                    <span class="summary-meals__name">{{ meal.name }}</span>
-                    <span class="summary-meals__meta">{{ meal.time_bucket }} · {{ "%.0f"|format(meal.calories) }} cal</span>
-                </li>
-                {% endfor %}
-            </ul>
+    <section class="meal-feed">
+        <div class="meal-feed__head">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>
+            </svg>
+            <span>Meals today</span>
         </div>
+        {% for meal in nutrition.meals %}
+        <div class="meal-feed__item">
+            <span class="meal-feed__time">{{ meal.time_bucket }}</span>
+            <span class="meal-feed__name">{{ meal.name }}</span>
+            <span class="meal-feed__cal">{{ "%.0f"|format(meal.calories) }} cal</span>
+        </div>
+        {% endfor %}
     </section>
     {% endif %}
 
-    {% if workouts %}
-    <section class="summary-card summary-card--list">
-        <div class="summary-card__icon">workouts</div>
-        <div class="summary-card__body">
-            <div class="summary-card__label">Workouts</div>
-            <ul class="summary-meals">
-                {% for w in workouts %}
-                <li>
-                    <span class="summary-meals__name">{{ w.name }}</span>
-                    <span class="summary-meals__meta">{{ w.time_bucket }}</span>
-                </li>
-                {% endfor %}
-            </ul>
+    {# ── Workout list (if multiple) ── #}
+    {% if workouts | length > 1 %}
+    <section class="meal-feed">
+        <div class="meal-feed__head">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M6 8H5a4 4 0 0 0 0 8h1"/><line x1="6" y1="12" x2="18" y2="12"/>
+            </svg>
+            <span>Workouts</span>
         </div>
-    </section>
-    {% else %}
-    <section class="summary-card summary-card--empty">
-        <div class="summary-card__icon">workouts</div>
-        <div class="summary-card__body">
-            <div class="summary-card__value">--</div>
-            <div class="summary-card__label">No workouts</div>
+        {% for w in workouts %}
+        <div class="meal-feed__item">
+            <span class="meal-feed__time">{{ w.time_bucket }}</span>
+            <span class="meal-feed__name">{{ w.name }}</span>
+            <span class="meal-feed__cal"></span>
         </div>
-    </section>
-    {% endif %}
-
-    {% if caffeine_mg > 0 %}
-    <section class="summary-card">
-        <div class="summary-card__icon">caffeine</div>
-        <div class="summary-card__body">
-            <div class="summary-card__value">{{ caffeine_mg }} mg</div>
-            <div class="summary-card__label">Caffeine</div>
-        </div>
+        {% endfor %}
     </section>
     {% endif %}
 

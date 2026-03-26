@@ -19,42 +19,42 @@
 <p class="stats-range">{{ start }} to {{ end }}</p>
 
 <div class="stats-grid">
-    <div class="stat-card">
+    <a href="{{ url_for('stats.workouts_detail', period=period) }}" class="stat-card stat-card--link">
         <div class="stat-card__value">{{ workouts.get('total', 0) }}</div>
         <div class="stat-card__label">Workouts</div>
-    </div>
-    <div class="stat-card">
+    </a>
+    <a href="{{ url_for('stats.workouts_detail', period=period) }}" class="stat-card stat-card--link">
         <div class="stat-card__value">{{ workouts.get('streak', 0) }}</div>
         <div class="stat-card__label">Day Streak</div>
-    </div>
-    <div class="stat-card">
+    </a>
+    <a href="{{ url_for('stats.sleep_detail', period=period) }}" class="stat-card stat-card--link">
         <div class="stat-card__value">
             {% if sleep.get('avg_duration_minutes') %}
             {{ "%.1f"|format(sleep.avg_duration_minutes / 60) }}h
             {% else %}—{% endif %}
         </div>
         <div class="stat-card__label">Avg Sleep</div>
-    </div>
-    <div class="stat-card">
+    </a>
+    <a href="{{ url_for('stats.sleep_detail', period=period) }}" class="stat-card stat-card--link">
         <div class="stat-card__value">
             {% if sleep.get('avg_quality') %}
             {{ "%.1f"|format(sleep.avg_quality) }}/5
             {% else %}—{% endif %}
         </div>
         <div class="stat-card__label">Sleep Quality</div>
-    </div>
-    <div class="stat-card">
+    </a>
+    <a href="{{ url_for('stats.nutrition_detail', period=period) }}" class="stat-card stat-card--link">
         <div class="stat-card__value">{{ "%.0f"|format(nutrition.get('avg_calories', 0)) }}</div>
         <div class="stat-card__label">Avg Calories/Day</div>
-    </div>
-    <div class="stat-card">
+    </a>
+    <a href="{{ url_for('stats.nutrition_detail', period=period) }}" class="stat-card stat-card--link">
         <div class="stat-card__value">{{ "%.0f"|format(nutrition.get('avg_protein_g', 0)) }}g</div>
         <div class="stat-card__label">Avg Protein/Day</div>
-    </div>
-    <div class="stat-card">
+    </a>
+    <a href="{{ url_for('stats.nutrition_detail', period=period) }}" class="stat-card stat-card--link">
         <div class="stat-card__value">{{ "%.0f"|format(nutrition.get('avg_sugar_g', 0)) }}g</div>
         <div class="stat-card__label">Avg Sugar/Day</div>
-    </div>
+    </a>
 </div>
 
 <div class="charts-grid">

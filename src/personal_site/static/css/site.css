@@ -690,6 +690,18 @@ button:active,
   text-align: center;
 }
 
+.stat-card--link {
+  text-decoration: none;
+  color: inherit;
+  transition: border-color var(--transition), transform var(--transition);
+}
+
+.stat-card--link:hover,
+.stat-card--link:focus-visible {
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+
 .stat-card__value {
   font-size: 1.5rem;
   font-weight: 700;
@@ -1036,94 +1048,346 @@ button:active,
 }
 
 /* ================================================================
-   DAY SUMMARY (home page)
+   DASHBOARD (Fitbit-inspired home page)
    ================================================================ */
 
-.day-summary {
-  display: grid;
-  gap: 10px;
-  margin-top: 16px;
+/* ---- Category accent colours ---- */
+:root[data-theme="midnight"] {
+  --clr-cal: #f43f8a;
+  --clr-cal-glow: rgba(244, 63, 138, 0.18);
+  --clr-protein: #22d3ee;
+  --clr-carbs: #facc15;
+  --clr-fat: #fb923c;
+  --clr-sugar: #c084fc;
+  --clr-sleep: #818cf8;
+  --clr-sleep-glow: rgba(129, 140, 248, 0.14);
+  --clr-workout: #34d399;
+  --clr-workout-glow: rgba(52, 211, 153, 0.14);
+  --clr-caffeine: #fbbf24;
+  --clr-caffeine-glow: rgba(251, 191, 36, 0.14);
 }
 
-.summary-card {
+:root[data-theme="light"] {
+  --clr-cal: #e11d48;
+  --clr-cal-glow: rgba(225, 29, 72, 0.10);
+  --clr-protein: #0891b2;
+  --clr-carbs: #ca8a04;
+  --clr-fat: #ea580c;
+  --clr-sugar: #9333ea;
+  --clr-sleep: #6366f1;
+  --clr-sleep-glow: rgba(99, 102, 241, 0.10);
+  --clr-workout: #059669;
+  --clr-workout-glow: rgba(5, 150, 105, 0.10);
+  --clr-caffeine: #d97706;
+  --clr-caffeine-glow: rgba(217, 119, 6, 0.10);
+}
+
+/* ---- Layout ---- */
+.dash {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 0 4px;
   display: flex;
-  gap: 14px;
-  align-items: flex-start;
-  padding: 16px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--card);
-  box-shadow: var(--shadow-card);
-  animation: fade-up 300ms ease both;
+  flex-direction: column;
+  gap: 20px;
 }
 
-.summary-card--empty {
-  opacity: 0.55;
-}
-
-.summary-card__icon {
-  flex-shrink: 0;
-  width: 36px;
-  height: 36px;
+/* ---- Hero ring ---- */
+.dash-hero {
   display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 28px 0 8px;
+  animation: fade-up 400ms ease both;
+}
+
+.ring-wrap {
+  position: relative;
+  width: 160px;
+  height: 160px;
+}
+
+.ring {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.ring__track {
+  fill: none;
+  stroke: var(--border-strong);
+  stroke-width: 8;
+}
+
+.ring__fill {
+  fill: none;
+  stroke-width: 8;
+  stroke-linecap: round;
+  stroke-dasharray: 326.73;  /* 2 * pi * 52 */
+  stroke-dashoffset: calc(326.73 - 326.73 * var(--pct) / 100);
+  transition: stroke-dashoffset 800ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ring__fill--cal {
+  stroke: var(--clr-cal);
+  filter: drop-shadow(0 0 6px var(--clr-cal-glow));
+}
+
+.ring-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-md);
-  background: var(--accent-glow);
-  color: var(--accent);
+  pointer-events: none;
+}
+
+.ring-label__value {
+  font-size: 2rem;
   font-weight: 700;
-  font-size: 0.6rem;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.ring-label__unit {
+  font-size: 0.78rem;
+  color: var(--muted);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.summary-card__body {
-  flex: 1;
-  min-width: 0;
-}
-
-.summary-card__value {
-  font-size: 1.3rem;
-  font-weight: 700;
-  line-height: 1.2;
-}
-
-.summary-card__label {
-  font-size: 0.82rem;
-  color: var(--fg-secondary);
+  letter-spacing: 0.08em;
   margin-top: 2px;
 }
 
-.summary-meals {
-  list-style: none;
-  margin: 6px 0 0;
-  padding: 0;
-  display: grid;
-  gap: 4px;
+.dash-hero--link {
+  text-decoration: none;
+  color: inherit;
 }
 
-.summary-meals li {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 6px 0;
-  border-top: 1px solid var(--border);
+.dash-hero__goal {
+  margin: 10px 0 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+.dash-hero__date {
+  margin: 4px 0 0;
   font-size: 0.85rem;
+  color: var(--fg-secondary);
+  text-align: center;
 }
 
-.summary-meals__name {
+/* ---- Macro chips ---- */
+.macro-row {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  animation: fade-up 400ms ease 80ms both;
+}
+
+.macro-row--link {
+  text-decoration: none;
+  color: inherit;
+}
+
+.macro-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 20px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  font-size: 0.78rem;
+}
+
+.macro-chip__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.macro-chip__dot--p { background: var(--clr-protein); }
+.macro-chip__dot--c { background: var(--clr-carbs); }
+.macro-chip__dot--f { background: var(--clr-fat); }
+.macro-chip__dot--s { background: var(--clr-sugar); }
+
+.macro-chip__val {
+  font-weight: 600;
+}
+
+.macro-chip__lbl {
+  color: var(--muted);
+}
+
+.macro-chip__goal {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+/* ---- Tile grid ---- */
+.tile-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  animation: fade-up 400ms ease 160ms both;
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-card);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color var(--transition), transform var(--transition);
+}
+
+.tile:hover,
+.tile:focus-visible {
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+
+.tile--empty {
+  opacity: 0.55;
+}
+
+.tile__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tile__icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.tile--sleep .tile__icon  { color: var(--clr-sleep); }
+.tile--workout .tile__icon { color: var(--clr-workout); }
+.tile--caffeine .tile__icon { color: var(--clr-caffeine); }
+
+.tile__title {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  color: var(--fg-secondary);
+}
+
+.tile__big {
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.tile__big small {
+  font-size: 0.55em;
   font-weight: 500;
+  color: var(--fg-secondary);
+}
+
+.tile__big--muted {
+  color: var(--muted);
+}
+
+.tile__sub {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.tile__bar {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border-strong);
+  margin-top: 6px;
+  overflow: hidden;
+}
+
+.tile__bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 600ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tile__bar-fill--sleep { background: var(--clr-sleep); }
+.tile__bar-fill--workout { background: var(--clr-workout); }
+.tile__bar-fill--caffeine { background: var(--clr-caffeine); }
+
+.tile--sleep:hover .tile__icon  { filter: drop-shadow(0 0 4px var(--clr-sleep-glow)); }
+.tile--workout:hover .tile__icon { filter: drop-shadow(0 0 4px var(--clr-workout-glow)); }
+.tile--caffeine:hover .tile__icon { filter: drop-shadow(0 0 4px var(--clr-caffeine-glow)); }
+
+/* ---- Meal / workout feed list ---- */
+.meal-feed {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  animation: fade-up 400ms ease 240ms both;
+}
+
+.meal-feed__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fg-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+.meal-feed__head svg {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.meal-feed__item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 14px;
+}
+
+.meal-feed__item + .meal-feed__item {
+  border-top: 1px solid var(--border);
+}
+
+.meal-feed__time {
+  font-size: 0.72rem;
+  text-transform: capitalize;
+  color: var(--muted);
+  min-width: 60px;
+}
+
+.meal-feed__name {
+  font-weight: 500;
+  font-size: 0.88rem;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.summary-meals__meta {
-  color: var(--muted);
+.meal-feed__cal {
   font-size: 0.78rem;
+  color: var(--fg-secondary);
   white-space: nowrap;
-  flex-shrink: 0;
+  text-align: right;
 }
 
 /* ================================================================
@@ -1470,13 +1734,22 @@ button:active,
     flex: none;
   }
 
-  /* Day summary */
-  .day-summary {
-    grid-template-columns: 1fr 1fr;
-    gap: 14px;
+  /* Dashboard */
+  .dash {
+    max-width: 520px;
   }
 
-  .summary-card--list {
-    grid-column: span 2;
+  .ring-wrap {
+    width: 180px;
+    height: 180px;
+  }
+
+  .ring-label__value {
+    font-size: 2.3rem;
+  }
+
+  .tile-grid {
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 14px;
   }
 }
