@@ -15,6 +15,9 @@
                     <button type="submit">Delete</button>
                 </form>
             </div>
+            {% if t.calories_per_hour %}
+            <small class="muted">+{{ "%.0f"|format(t.calories_per_hour) }} cal/hr</small>
+            {% endif %}
             {% if t.metric_schema %}
             <small class="muted">Schema: {{ t.metric_schema | tojson }}</small>
             {% endif %}

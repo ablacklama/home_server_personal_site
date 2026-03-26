@@ -457,7 +457,24 @@ def create_type():
                 )
             return _render_type_new("A workout type with that name already exists"), 400
 
-        session.add(WorkoutType(name=name, metric_schema=schema))
+        cal_raw = (request.form.get("calories_per_hour") or "").strip()
+        calories_per_hour = None
+        if cal_raw:
+            try:
+                calories_per_hour = float(cal_raw)
+            except ValueError:
+                message = "Calories/hour must be a number"
+                if _is_htmx():
+                    return _render_type_response(session, message, status=400)
+                return _render_type_new(message), 400
+
+        session.add(
+            WorkoutType(
+                name=name,
+                metric_schema=schema,
+                calories_per_hour=calories_per_hour,
+            )
+        )
         session.commit()
 
         log_activity("workout", "create_type", f"name={name}")

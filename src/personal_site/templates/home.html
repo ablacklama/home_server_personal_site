@@ -6,6 +6,17 @@
 {% block content %}
 <div class="dash">
 
+    {# ── Day navigation ── #}
+    <nav class="day-nav" id="day-nav">
+        <a href="/?date={{ prev_day }}" class="day-nav__arrow day-nav__link">&larr;</a>
+        <span class="day-nav__label">{% if is_today %}Today{% else %}{{ today_label }}{% endif %}</span>
+        {% if next_day %}
+        <a href="/?date={{ next_day }}" class="day-nav__arrow day-nav__link">&rarr;</a>
+        {% else %}
+        <span class="day-nav__arrow day-nav__arrow--disabled">&rarr;</span>
+        {% endif %}
+    </nav>
+
     {# ── Hero ring: calories (links to nutrition stats) ── #}
     <a href="{{ url_for('stats.nutrition_detail') }}" class="dash-hero dash-hero--link">
         <div class="ring-wrap">
@@ -23,7 +34,9 @@
         {% if goals.calories %}
         <p class="dash-hero__goal">Goal: {{ "%.0f"|format(goals.calories) }} cal</p>
         {% endif %}
+        {% if not is_today %}
         <p class="dash-hero__date">{{ today_label }}</p>
+        {% endif %}
     </a>
 
     {# ── Macro chips row (links to nutrition stats) ── #}
@@ -171,4 +184,23 @@
     {% endif %}
 
 </div>
+
+<script>
+(function () {
+    // Inject tz_offset into all day-nav links so the server uses the right timezone
+    var offset = new Date().getTimezoneOffset();
+    document.querySelectorAll(".day-nav__link").forEach(function (a) {
+        var url = new URL(a.href, location.origin);
+        url.searchParams.set("tz_offset", offset);
+        a.href = url.toString();
+    });
+
+    // If no tz_offset on initial page load, redirect with it so today is correct
+    var params = new URLSearchParams(location.search);
+    if (!params.has("tz_offset")) {
+        params.set("tz_offset", offset);
+        location.replace("/?" + params.toString());
+    }
+})();
+</script>
 {% endblock %}

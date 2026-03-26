@@ -1092,6 +1092,42 @@ button:active,
   gap: 20px;
 }
 
+/* ---- Day navigation ---- */
+.day-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 4px 0;
+}
+
+.day-nav__arrow {
+  font-size: 1.2rem;
+  line-height: 1;
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  color: var(--accent);
+  transition: background var(--transition);
+}
+
+.day-nav__arrow:hover {
+  background: var(--card);
+}
+
+.day-nav__arrow--disabled {
+  color: var(--muted);
+  opacity: 0.35;
+  cursor: default;
+}
+
+.day-nav__label {
+  font-weight: 600;
+  font-size: 0.92rem;
+  min-width: 100px;
+  text-align: center;
+}
+
 /* ---- Hero ring ---- */
 .dash-hero {
   display: flex;

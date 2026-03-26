@@ -20,6 +20,12 @@
             <input name="name" required />
         </label>
 
+        <label>
+            Extra calories / hour
+            <input type="number" name="calories_per_hour" min="0" step="any"
+                   placeholder="e.g. 300 (optional)" />
+        </label>
+
         <h3>Metrics</h3>
         <p class="muted">Supported types: string, integer, hours/minutes. Defaults: for hours/minutes use H:MM
             (e.g. 1:30).</p>

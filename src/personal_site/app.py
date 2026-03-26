@@ -145,7 +145,9 @@ def create_app() -> Flask:
         client_today = _client_today()
         is_today = day == client_today
         prev_day = (day - dt.timedelta(days=1)).isoformat()
-        next_day = (day + dt.timedelta(days=1)).isoformat() if day < client_today else None
+        next_day = (
+            (day + dt.timedelta(days=1)).isoformat() if day < client_today else None
+        )
         today_label = day.strftime("%A, %B %-d")
 
         default_goals = {
@@ -204,7 +206,7 @@ def create_app() -> Flask:
             # Nutrition
             logs = list(
                 session.scalars(
-                    select(NutritionLog).where(NutritionLog.logged_on == today)
+                    select(NutritionLog).where(NutritionLog.logged_on == day)
                 ).all()
             )
             total_cal = 0.0
@@ -245,7 +247,7 @@ def create_app() -> Flask:
             # Workouts
             workout_entries = list(
                 session.scalars(
-                    select(WorkoutEntry).where(WorkoutEntry.performed_on == today)
+                    select(WorkoutEntry).where(WorkoutEntry.performed_on == day)
                 ).all()
             )
             type_ids = {e.workout_type_id for e in workout_entries}
@@ -267,7 +269,7 @@ def create_app() -> Flask:
             caffeine_total = sum(
                 e.amount_mg
                 for e in session.scalars(
-                    select(CaffeineEntry).where(CaffeineEntry.consumed_on == today)
+                    select(CaffeineEntry).where(CaffeineEntry.consumed_on == day)
                 ).all()
             )
 
@@ -283,14 +285,27 @@ def create_app() -> Flask:
                 goals["workouts_per_week"] = prefs.goal_workouts_per_week
                 goals["caffeine_mg"] = prefs.goal_caffeine_mg
 
+                # Exercise calorie bonus
+                if prefs.exercise_calories_per_hour and goals["calories"]:
+                    exercise_hours = 0.0
+                    for e in workout_entries:
+                        for key, val in (e.metrics or {}).items():
+                            if isinstance(val, dict) and "hours" in val:
+                                exercise_hours += (
+                                    val.get("hours", 0) + val.get("minutes", 0) / 60
+                                )
+                    goals["calories"] += (
+                        exercise_hours * prefs.exercise_calories_per_hour
+                    )
+
             # Weekly workout count (for goal progress)
-            week_start = today - dt.timedelta(days=today.weekday())
+            week_start = day - dt.timedelta(days=day.weekday())
             workouts_this_week = len(
                 list(
                     session.scalars(
                         select(WorkoutEntry).where(
                             WorkoutEntry.performed_on >= week_start,
-                            WorkoutEntry.performed_on <= today,
+                            WorkoutEntry.performed_on <= day,
                         )
                     ).all()
                 )
@@ -306,6 +321,9 @@ def create_app() -> Flask:
             caffeine_mg=caffeine_total,
             goals=goals,
             workouts_this_week=workouts_this_week,
+            prev_day=prev_day,
+            next_day=next_day,
+            is_today=is_today,
         )
 
     @app.get("/healthz")

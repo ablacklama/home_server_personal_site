@@ -116,7 +116,7 @@
   document.querySelectorAll('input[type="date"]').forEach((input) => {
     // Only override if the input has the server-set "today" value
     // (not user-edited or pre-filled for editing)
-    if (input.dataset.noAutodate) return;
+    if ("noAutodate" in input.dataset) return;
     if (input.value && input.value === input.defaultValue) {
       input.value = localDate;
     }

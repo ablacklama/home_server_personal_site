@@ -46,6 +46,16 @@ def ensure_sqlite_workouts_schema(engine) -> None:
                 text("ALTER TABLE workout_entries ADD COLUMN time_bucket VARCHAR(16)")
             )
 
+        # workout_types: add calories_per_hour if missing
+        type_cols = conn.execute(text("PRAGMA table_info(workout_types)"))
+        type_existing = {row[1] for row in type_cols}
+        if "calories_per_hour" not in type_existing:
+            conn.execute(
+                text(
+                    "ALTER TABLE workout_types ADD COLUMN calories_per_hour FLOAT"
+                )
+            )
+
 
 def ensure_sqlite_chat_schema(engine) -> None:
     if getattr(engine.dialect, "name", None) != "sqlite":
