@@ -1,5 +1,4 @@
-<section class="card" id="meals-list" {% if oob %}hx-swap-oob="true"{% endif %}>
-    <h2>Saved meals</h2>
+<section id="meals-list" {% if oob %}hx-swap-oob="true"{% endif %}>
     {% if meals %}
     <div class="workout-list">
         {% for meal in meals %}
@@ -12,15 +11,14 @@
                         hx-post="{{ url_for('nutrition.delete_meal', meal_id=meal.id) }}"
                         hx-target="#meals-error"
                         hx-swap="innerHTML"
-                        hx-confirm="Delete {{ meal.name }}?"
-                        style="display:inline">
+                        hx-confirm="Delete {{ meal.name }}?">
                         <button type="submit">Delete</button>
                     </form>
                 </div>
             </div>
             <dl class="metrics">
                 {% for mi in meal.ingredients %}
-                <div class="metric-row">
+                <div class="metrics__row">
                     <dt>{{ mi.ingredient.name }}</dt>
                     <dd>{{ mi.servings }} serving{{ 's' if mi.servings != 1 }}</dd>
                 </div>
@@ -33,6 +31,6 @@
         {% endfor %}
     </div>
     {% else %}
-    <p>No meals saved yet. Create one above.</p>
+    <p class="muted">No meals saved yet.</p>
     {% endif %}
 </section>

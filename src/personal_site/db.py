@@ -51,9 +51,7 @@ def ensure_sqlite_workouts_schema(engine) -> None:
         type_existing = {row[1] for row in type_cols}
         if "calories_per_hour" not in type_existing:
             conn.execute(
-                text(
-                    "ALTER TABLE workout_types ADD COLUMN calories_per_hour FLOAT"
-                )
+                text("ALTER TABLE workout_types ADD COLUMN calories_per_hour FLOAT")
             )
 
 

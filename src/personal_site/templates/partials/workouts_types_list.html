@@ -1,30 +1,35 @@
-<section class="card" id="workout-types-list" {% if oob %}hx-swap-oob="true"{% endif %}>
-    <h2>Existing types</h2>
+<section id="workout-types-list" {% if oob %}hx-swap-oob="true"{% endif %}>
     {% if workout_types %}
     <ul class="type-list">
         {% for t in workout_types %}
         <li>
-            <div class="type-list__name">{{ t.name }}</div>
-            <div class="type-list__actions">
-                <form method="post" action="{{ url_for('workouts.type_delete', type_id=t.id) }}"
-                    hx-post="{{ url_for('workouts.type_delete', type_id=t.id) }}"
-                    hx-target="#types-error"
-                    hx-swap="innerHTML"
-                    hx-confirm="Delete workout type {{ t.name }}? This also deletes all entries of this type."
-                    style="display:inline">
-                    <button type="submit">Delete</button>
-                </form>
+            <div class="type-list__header">
+                <div class="type-list__name">{{ t.name }}</div>
+                <div class="type-list__meta">
+                    {% if t.calories_per_hour %}
+                    <span>+{{ "%.0f"|format(t.calories_per_hour) }} cal/hr</span>
+                    {% endif %}
+                    <a href="{{ url_for('workouts.type_edit_form', type_id=t.id) }}">Edit</a>
+                    <form method="post" action="{{ url_for('workouts.type_delete', type_id=t.id) }}"
+                        hx-post="{{ url_for('workouts.type_delete', type_id=t.id) }}"
+                        hx-target="#types-error"
+                        hx-swap="innerHTML"
+                        hx-confirm="Delete workout type {{ t.name }}? This also deletes all entries of this type.">
+                        <button type="submit">Delete</button>
+                    </form>
+                </div>
             </div>
-            {% if t.calories_per_hour %}
-            <small class="muted">+{{ "%.0f"|format(t.calories_per_hour) }} cal/hr</small>
-            {% endif %}
             {% if t.metric_schema %}
-            <small class="muted">Schema: {{ t.metric_schema | tojson }}</small>
+            <div class="type-list__detail">
+                {% for m in t.metric_schema %}
+                <span>{{ m.key }} ({{ m.type }}){% if not loop.last %}, {% endif %}</span>
+                {% endfor %}
+            </div>
             {% endif %}
         </li>
         {% endfor %}
     </ul>
     {% else %}
-    <p>No types yet.</p>
+    <p class="muted">No workout types yet.</p>
     {% endif %}
 </section>

@@ -1,59 +1,63 @@
 {% extends "workouts_base.html" %}
 
 {% block workouts_content %}
-<h1>Workout tracker</h1>
-<p>Log workouts and review recent activity.</p>
+<div class="page-header">
+    <h1>Workouts</h1>
+    <button class="btn-add" onclick="document.getElementById('add-form').dataset.open = document.getElementById('add-form').dataset.open === 'true' ? 'false' : 'true'" title="Log workout">+</button>
+</div>
+<p class="muted">Log workouts and review recent activity.</p>
 
 <div id="workouts-error">
     {% include "partials/workouts_error.html" %}
 </div>
 
-<section class="card">
-    <h2>Log workout</h2>
-    <form method="post" action="{{ url_for('workouts.create_entry') }}"
-        hx-post="{{ url_for('workouts.create_entry') }}"
-        hx-target="#workouts-error"
-        hx-swap="innerHTML"
-        id="log-workout-form">
-        <label>
-            Workout type
-            <select name="workout_type_id" id="workout-type-select" required>
-                <option value="" selected disabled>Choose…</option>
-                {% for t in workout_types %}
-                <option value="{{ t.id }}" data-schema='{{ t.metric_schema | tojson }}'>
-                    {{ t.name }}
-                </option>
-                {% endfor %}
-            </select>
-        </label>
+<div class="add-form-wrap" id="add-form" data-open="false">
+    <div class="add-form-inner">
+        <section class="card">
+            <h2>Log workout</h2>
+            <form method="post" action="{{ url_for('workouts.create_entry') }}"
+                hx-post="{{ url_for('workouts.create_entry') }}"
+                hx-target="#workouts-error"
+                hx-swap="innerHTML"
+                id="log-workout-form">
+                <label>
+                    Workout type
+                    <select name="workout_type_id" id="workout-type-select" required>
+                        <option value="" selected disabled>Choose...</option>
+                        {% for t in workout_types %}
+                        <option value="{{ t.id }}" data-schema='{{ t.metric_schema | tojson }}'>
+                            {{ t.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </label>
 
-        <label>
-            Day
-            <input type="date" name="performed_on" value="{{ default_performed_on }}" />
-        </label>
+                <label>
+                    Day
+                    <input type="date" name="performed_on" value="{{ default_performed_on }}" />
+                </label>
 
-        <label>
-            Time
-            <select name="time_bucket">
-                <option value="morning" {% if default_time_bucket=='morning' %}selected{% endif %}>Morning
-                    (5am–12pm)</option>
-                <option value="afternoon" {% if default_time_bucket=='afternoon' %}selected{% endif %}>
-                    Afternoon (12pm–5pm)</option>
-                <option value="night" {% if default_time_bucket=='night' %}selected{% endif %}>Night (5pm–5am)
-                </option>
-            </select>
-        </label>
+                <label>
+                    Time
+                    <select name="time_bucket">
+                        <option value="morning" {% if default_time_bucket=='morning' %}selected{% endif %}>Morning (5am-12pm)</option>
+                        <option value="afternoon" {% if default_time_bucket=='afternoon' %}selected{% endif %}>Afternoon (12pm-5pm)</option>
+                        <option value="night" {% if default_time_bucket=='night' %}selected{% endif %}>Night (5pm-5am)</option>
+                    </select>
+                </label>
 
-        <div id="metrics-container"></div>
+                <div id="metrics-container"></div>
 
-        <label>
-            Notes
-            <textarea name="notes" rows="3"></textarea>
-        </label>
+                <label>
+                    Notes
+                    <textarea name="notes" rows="3"></textarea>
+                </label>
 
-        <button type="submit">Log workout</button>
-    </form>
-</section>
+                <button type="submit">Log workout</button>
+            </form>
+        </section>
+    </div>
+</div>
 
 {% include "partials/workouts_recent_list.html" %}
 

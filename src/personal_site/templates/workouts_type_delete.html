@@ -15,7 +15,7 @@
     <h2>Confirm</h2>
     <form method="post" action="{{ url_for('workouts.type_delete', type_id=type_id) }}">
         <button type="submit">Delete type</button>
-        <a href="{{ url_for('workouts.type_new') }}">Cancel</a>
+        <a href="{{ url_for('workouts.types_index') }}">Cancel</a>
     </form>
 </section>
 {% endblock %}

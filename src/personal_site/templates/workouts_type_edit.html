@@ -1,0 +1,117 @@
+{% extends "workouts_base.html" %}
+
+{% block workouts_content %}
+<h1>Edit workout type</h1>
+
+<div id="types-error">
+    {% include "partials/workouts_error.html" %}
+</div>
+
+<section class="card">
+    <form method="post" action="{{ url_for('workouts.type_edit', type_id=wtype.id) }}">
+        <label>
+            Name
+            <input name="name" required value="{{ wtype.name }}" />
+        </label>
+
+        <label>
+            Extra calories / hour
+            <input type="number" name="calories_per_hour" min="0" step="any"
+                   value="{{ wtype.calories_per_hour if wtype.calories_per_hour is not none else '' }}"
+                   placeholder="e.g. 300 (optional)" />
+        </label>
+
+        <h3>Metrics</h3>
+        <p class="muted">Supported types: string, integer, hours/minutes.</p>
+
+        <div id="metrics-editor"></div>
+
+        <button type="button" id="add-metric" class="button--ghost">+ Add metric</button>
+
+        <div style="margin-top:16px">
+            <button type="submit">Save changes</button>
+            <a href="{{ url_for('workouts.types_index') }}" class="button--ghost" style="margin-left:8px;display:inline-block;padding:10px 18px;text-decoration:none">Cancel</a>
+        </div>
+    </form>
+</section>
+
+<script>
+(function () {
+    const editor = document.getElementById("metrics-editor");
+    const addBtn = document.getElementById("add-metric");
+
+    function addRow(keyValue, typeValue, requiredValue, defaultValue) {
+        keyValue = keyValue || "";
+        typeValue = typeValue || "string";
+        requiredValue = requiredValue || "0";
+        defaultValue = defaultValue || "";
+
+        const row = document.createElement("div");
+        row.className = "metric-editor-row";
+
+        const key = document.createElement("input");
+        key.name = "metric_key";
+        key.placeholder = "metric key";
+        key.value = keyValue;
+
+        const type = document.createElement("select");
+        type.name = "metric_type";
+        [["string","String"],["integer","Integer"],["hours_minutes","Hours/Minutes"]].forEach(([val, label]) => {
+            const o = document.createElement("option");
+            o.value = val;
+            o.textContent = label;
+            if (val === typeValue) o.selected = true;
+            type.appendChild(o);
+        });
+
+        const required = document.createElement("select");
+        required.name = "metric_required";
+        [["0","Optional"],["1","Required"]].forEach(([val, label]) => {
+            const o = document.createElement("option");
+            o.value = val;
+            o.textContent = label;
+            if (val === String(requiredValue)) o.selected = true;
+            required.appendChild(o);
+        });
+
+        const def = document.createElement("input");
+        def.name = "metric_default";
+        def.placeholder = "default (optional)";
+        def.value = defaultValue;
+
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.textContent = "Remove";
+        remove.className = "button--ghost";
+        remove.addEventListener("click", () => row.remove());
+
+        row.appendChild(key);
+        row.appendChild(type);
+        row.appendChild(required);
+        row.appendChild(def);
+        row.appendChild(remove);
+        editor.appendChild(row);
+    }
+
+    addBtn.addEventListener("click", () => addRow());
+
+    // Pre-populate from existing schema
+    const schema = {{ wtype.metric_schema | tojson }};
+    if (schema && schema.length) {
+        schema.forEach(m => {
+            let defVal = "";
+            if (m.default !== undefined && m.default !== null) {
+                if (typeof m.default === "object" && m.default.hours !== undefined) {
+                    defVal = m.default.hours + ":" + String(m.default.minutes || 0).padStart(2, "0");
+                } else {
+                    defVal = String(m.default);
+                }
+            }
+            addRow(m.key || "", m.type || "string", m.required ? "1" : "0", defVal);
+        });
+    } else {
+        addRow();
+    }
+})();
+</script>
+{% endblock %}

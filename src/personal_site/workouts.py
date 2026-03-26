@@ -410,9 +410,103 @@ def index():
     return _render_index()
 
 
+@bp.get("/types")
+def types_index():
+    return _render_type_new()
+
+
 @bp.get("/types/new")
 def type_new():
     return _render_type_new()
+
+
+@bp.get("/types/<type_id>/edit")
+def type_edit_form(type_id: str):
+    SessionLocal = current_app.session  # type: ignore[attr-defined]
+    if SessionLocal is None:
+        return _render_type_new("Database is not configured"), 503
+
+    with SessionLocal() as session:
+        wt = session.get(WorkoutType, type_id)
+        if wt is None:
+            return _render_type_new("Workout type not found"), 404
+
+        return render_template(
+            "workouts_type_edit.html",
+            title=f"Edit {wt.name}",
+            wtype=wt,
+            error=None,
+        )
+
+
+@bp.post("/types/<type_id>/edit")
+def type_edit(type_id: str):
+    SessionLocal = current_app.session  # type: ignore[attr-defined]
+    if SessionLocal is None:
+        return _render_type_new("Database is not configured"), 503
+
+    with SessionLocal() as session:
+        wt = session.get(WorkoutType, type_id)
+        if wt is None:
+            return _render_type_new("Workout type not found"), 404
+
+        name = (request.form.get("name") or "").strip()
+        if not name:
+            return render_template(
+                "workouts_type_edit.html",
+                title=f"Edit {wt.name}",
+                wtype=wt,
+                error="Name is required",
+            ), 400
+
+        # Check for duplicate name (excluding self)
+        existing = session.scalar(
+            select(WorkoutType).where(
+                WorkoutType.name == name, WorkoutType.id != type_id
+            )
+        )
+        if existing is not None:
+            return render_template(
+                "workouts_type_edit.html",
+                title=f"Edit {wt.name}",
+                wtype=wt,
+                error="A workout type with that name already exists",
+            ), 400
+
+        try:
+            if request.form.getlist("metric_key"):
+                schema = _parse_schema_from_form()
+            else:
+                schema = wt.metric_schema  # keep existing if nothing submitted
+        except (ValueError, json.JSONDecodeError) as exc:
+            return render_template(
+                "workouts_type_edit.html",
+                title=f"Edit {wt.name}",
+                wtype=wt,
+                error=f"Invalid metric schema: {exc}",
+            ), 400
+
+        cal_raw = (request.form.get("calories_per_hour") or "").strip()
+        calories_per_hour = None
+        if cal_raw:
+            try:
+                calories_per_hour = float(cal_raw)
+            except ValueError:
+                return render_template(
+                    "workouts_type_edit.html",
+                    title=f"Edit {wt.name}",
+                    wtype=wt,
+                    error="Calories/hour must be a number",
+                ), 400
+
+        wt.name = name
+        wt.metric_schema = schema
+        wt.calories_per_hour = calories_per_hour
+        session.commit()
+
+        log_activity("workout", "edit_type", f"id={type_id} name={name}")
+
+    return redirect(url_for("workouts.types_index"))
 
 
 @bp.post("/types")
@@ -880,4 +974,4 @@ def type_delete(type_id: str):
 
         if _is_htmx():
             return _render_type_response(session)
-    return redirect(url_for("workouts.type_new"))
+    return redirect(url_for("workouts.types_index"))

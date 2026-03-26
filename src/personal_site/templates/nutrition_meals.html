@@ -7,52 +7,59 @@
     <a href="{{ url_for('nutrition.meals_index') }}">Meals</a>
 </div>
 
-<h1>Meals</h1>
-<p>Create reusable meal templates from your ingredient library.</p>
+<div class="page-header">
+    <h1>Meals</h1>
+    <button class="btn-add" onclick="document.getElementById('add-form').dataset.open = document.getElementById('add-form').dataset.open === 'true' ? 'false' : 'true'" title="Create meal">+</button>
+</div>
+<p class="muted">Create reusable meal templates from your ingredient library.</p>
 
 <div id="meals-error">
     {% include "partials/nutrition_error.html" %}
 </div>
 
-<section class="card">
-    <h2>Create meal</h2>
-    <form method="post" action="{{ url_for('nutrition.create_meal') }}"
-        hx-post="{{ url_for('nutrition.create_meal') }}"
-        hx-target="#meals-error"
-        hx-swap="innerHTML"
-        id="create-meal-form">
+<div class="add-form-wrap" id="add-form" data-open="false">
+    <div class="add-form-inner">
+        <section class="card">
+            <h2>Create meal</h2>
+            <form method="post" action="{{ url_for('nutrition.create_meal') }}"
+                hx-post="{{ url_for('nutrition.create_meal') }}"
+                hx-target="#meals-error"
+                hx-swap="innerHTML"
+                id="create-meal-form">
 
-        <label>
-            Name
-            <input type="text" name="name" required placeholder="e.g. Morning oatmeal" />
-        </label>
+                <label>
+                    Name
+                    <input type="text" name="name" required placeholder="e.g. Morning oatmeal" />
+                </label>
 
-        <div id="meal-ingredient-rows">
-            <h3>Ingredients</h3>
-            <div class="ingredient-row-template" style="display:none">
-                <div class="ingredient-row">
-                    <select name="ingredient_id" class="ingredient-select">
-                        <option value="">Choose…</option>
-                        {% for ing in ingredients %}
-                        <option value="{{ ing.id }}">{{ ing.name }}</option>
-                        {% endfor %}
-                    </select>
-                    <input type="number" name="servings" value="1" min="0.1" step="any" placeholder="servings" />
-                    <button type="button" class="button--ghost remove-row-btn">Remove</button>
+                <div id="meal-ingredient-rows">
+                    <h3>Ingredients</h3>
+                    <div class="ingredient-row-template" style="display:none">
+                        <div class="ingredient-row">
+                            <select name="ingredient_id" class="ingredient-select">
+                                <option value="">Choose...</option>
+                                {% for ing in ingredients %}
+                                <option value="{{ ing.id }}">{{ ing.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <input type="number" name="servings" value="1" min="0.1" step="any" placeholder="servings" />
+                            <button type="button" class="button--ghost remove-row-btn">Remove</button>
+                        </div>
+                    </div>
+                    <div id="meal-ingredient-rows-container"></div>
+                    <button type="button" id="meal-add-ingredient-btn" class="button--ghost">+ Add ingredient</button>
                 </div>
-            </div>
-            <div id="meal-ingredient-rows-container"></div>
-            <button type="button" id="meal-add-ingredient-btn" class="button--ghost">+ Add ingredient</button>
-        </div>
 
-        <label>
-            Notes
-            <textarea name="notes" rows="2"></textarea>
-        </label>
+                <label>
+                    Notes
+                    <textarea name="notes" rows="2"></textarea>
+                </label>
 
-        <button type="submit">Save meal</button>
-    </form>
-</section>
+                <button type="submit">Save meal</button>
+            </form>
+        </section>
+    </div>
+</div>
 
 {% include "partials/nutrition_meals_list.html" %}
 

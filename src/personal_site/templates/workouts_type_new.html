@@ -1,41 +1,48 @@
 {% extends "workouts_base.html" %}
 
 {% block workouts_content %}
-<h1>Add workout type</h1>
-<p>Create a workout type and define the metrics you want to track.</p>
+<div class="page-header">
+    <h1>Workout Types</h1>
+    <button class="btn-add" onclick="document.getElementById('add-form').dataset.open = document.getElementById('add-form').dataset.open === 'true' ? 'false' : 'true'" title="Add workout type">+</button>
+</div>
+<p class="muted">Define workout types and the metrics you want to track for each.</p>
 
 <div id="types-error">
     {% include "partials/workouts_error.html" %}
 </div>
 
-<section class="card">
-    <h2>New type</h2>
-    <form method="post" action="{{ url_for('workouts.create_type') }}"
-        hx-post="{{ url_for('workouts.create_type') }}"
-        hx-target="#types-error"
-        hx-swap="innerHTML"
-        id="new-type-form">
-        <label>
-            Name
-            <input name="name" required />
-        </label>
+<div class="add-form-wrap" id="add-form" data-open="false">
+    <div class="add-form-inner">
+        <section class="card">
+            <h2>New type</h2>
+            <form method="post" action="{{ url_for('workouts.create_type') }}"
+                hx-post="{{ url_for('workouts.create_type') }}"
+                hx-target="#types-error"
+                hx-swap="innerHTML"
+                id="new-type-form">
+                <label>
+                    Name
+                    <input name="name" required />
+                </label>
 
-        <label>
-            Extra calories / hour
-            <input type="number" name="calories_per_hour" min="0" step="any"
-                   placeholder="e.g. 300 (optional)" />
-        </label>
+                <label>
+                    Extra calories / hour
+                    <input type="number" name="calories_per_hour" min="0" step="any"
+                           placeholder="e.g. 300 (optional)" />
+                </label>
 
-        <h3>Metrics</h3>
-        <p class="muted">Supported types: string, integer, hours/minutes. Defaults: for hours/minutes use H:MM
-            (e.g. 1:30).</p>
+                <h3>Metrics</h3>
+                <p class="muted">Supported types: string, integer, hours/minutes. Defaults: for hours/minutes use H:MM
+                    (e.g. 1:30).</p>
 
-        <div id="metrics-editor"></div>
+                <div id="metrics-editor"></div>
 
-        <button type="button" id="add-metric">Add metric</button>
-        <button type="submit">Create type</button>
-    </form>
-</section>
+                <button type="button" id="add-metric" class="button--ghost">+ Add metric</button>
+                <button type="submit">Create type</button>
+            </form>
+        </section>
+    </div>
+</div>
 
 {% include "partials/workouts_types_list.html" %}
 
@@ -44,7 +51,12 @@
         const editor = document.getElementById("metrics-editor");
         const addBtn = document.getElementById("add-metric");
 
-        function addRow(keyValue = "", typeValue = "string", requiredValue = "0", defaultValue = "") {
+        function addRow(keyValue, typeValue, requiredValue, defaultValue) {
+            keyValue = keyValue || "";
+            typeValue = typeValue || "string";
+            requiredValue = requiredValue || "0";
+            defaultValue = defaultValue || "";
+
             const row = document.createElement("div");
             row.className = "metric-editor-row";
 
@@ -92,6 +104,7 @@
             const remove = document.createElement("button");
             remove.type = "button";
             remove.textContent = "Remove";
+            remove.className = "button--ghost";
             remove.addEventListener("click", () => row.remove());
 
             row.appendChild(key);

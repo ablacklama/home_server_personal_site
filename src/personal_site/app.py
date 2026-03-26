@@ -251,15 +251,19 @@ def create_app() -> Flask:
                 ).all()
             )
             type_ids = {e.workout_type_id for e in workout_entries}
-            type_names = {}
+            type_map: dict[str, WorkoutType] = {}
             if type_ids:
                 for wt in session.scalars(
                     select(WorkoutType).where(WorkoutType.id.in_(type_ids))
                 ).all():
-                    type_names[wt.id] = wt.name
+                    type_map[wt.id] = wt
             workout_data = [
                 {
-                    "name": type_names.get(e.workout_type_id, "Workout"),
+                    "name": (
+                        type_map[e.workout_type_id].name
+                        if e.workout_type_id in type_map
+                        else "Workout"
+                    ),
                     "time_bucket": e.time_bucket or "",
                 }
                 for e in workout_entries
@@ -285,18 +289,22 @@ def create_app() -> Flask:
                 goals["workouts_per_week"] = prefs.goal_workouts_per_week
                 goals["caffeine_mg"] = prefs.goal_caffeine_mg
 
-                # Exercise calorie bonus
-                if prefs.exercise_calories_per_hour and goals["calories"]:
+            # Exercise calorie bonus (per workout type)
+            if goals["calories"] and workout_entries:
+                bonus = 0.0
+                for e in workout_entries:
+                    wt = type_map.get(e.workout_type_id)
+                    if not wt or not wt.calories_per_hour:
+                        continue
                     exercise_hours = 0.0
-                    for e in workout_entries:
-                        for key, val in (e.metrics or {}).items():
-                            if isinstance(val, dict) and "hours" in val:
-                                exercise_hours += (
-                                    val.get("hours", 0) + val.get("minutes", 0) / 60
-                                )
-                    goals["calories"] += (
-                        exercise_hours * prefs.exercise_calories_per_hour
-                    )
+                    for val in (e.metrics or {}).values():
+                        if isinstance(val, dict) and "hours" in val:
+                            exercise_hours += (
+                                val.get("hours", 0) + val.get("minutes", 0) / 60
+                            )
+                    bonus += exercise_hours * wt.calories_per_hour
+                if bonus:
+                    goals["calories"] += bonus
 
             # Weekly workout count (for goal progress)
             week_start = day - dt.timedelta(days=day.weekday())

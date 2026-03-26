@@ -1,5 +1,4 @@
-<section class="card" id="nutrition-recent" {% if oob %}hx-swap-oob="true"{% endif %}>
-    <h2>Recent logs</h2>
+<section id="nutrition-recent" {% if oob %}hx-swap-oob="true"{% endif %}>
     {% if recent_logs %}
     <div class="workout-list">
         {% for log in recent_logs %}
@@ -9,16 +8,15 @@
                     {% if log.meal %}{{ log.meal.name }}{% else %}Ad-hoc meal{% endif %}
                 </div>
                 <div class="workout-card__meta">
-                    {{ log.logged_on.isoformat() }} · {{ log.time_bucket }}
-                    ·
+                    <span>{{ log.logged_on.isoformat() }}</span>
+                    <span class="meta-sep">&middot;</span>
+                    <span>{{ log.time_bucket }}</span>
                     <a href="{{ url_for('nutrition.edit_log_form', log_id=log.id) }}">Edit</a>
-                    ·
                     <form method="post" action="{{ url_for('nutrition.delete_log', log_id=log.id) }}"
                         hx-post="{{ url_for('nutrition.delete_log', log_id=log.id) }}"
                         hx-target="#nutrition-error"
                         hx-swap="innerHTML"
-                        hx-confirm="Delete this log?"
-                        style="display:inline">
+                        hx-confirm="Delete this log?">
                         <button type="submit">Delete</button>
                     </form>
                 </div>
@@ -26,7 +24,7 @@
 
             <dl class="metrics">
                 {% for item in log.items %}
-                <div class="metric-row">
+                <div class="metrics__row">
                     <dt>{{ item.ingredient.name }}</dt>
                     <dd>{{ item.servings }} serving{{ 's' if item.servings != 1 }}</dd>
                 </div>
@@ -53,6 +51,6 @@
         {% endfor %}
     </div>
     {% else %}
-    <p>No meals logged yet.</p>
+    <p class="muted">No meals logged yet.</p>
     {% endif %}
 </section>
