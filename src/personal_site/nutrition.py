@@ -16,6 +16,7 @@ from flask import (
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 
+from .activity_log import log_activity
 from .ai import (
     AiConfig,
     fill_missing_ingredient_info,
@@ -334,6 +335,12 @@ def create_log():
         session.add(log)
         session.commit()
 
+        log_activity(
+            "nutrition",
+            "create_log",
+            f"{logged_on} {time_bucket} items={len(items)}",
+        )
+
         if _is_htmx():
             return _render_log_response(session, trigger={"nutritionLogSaved": True})
         return redirect(url_for("nutrition.index"))
@@ -508,6 +515,8 @@ def edit_log(log_id: str):
 
         session.commit()
 
+        log_activity("nutrition", "edit_log", f"id={log_id} items={len(new_items)}")
+
         if _is_htmx():
             return _render_log_response(session, trigger={"nutritionLogSaved": True})
         return redirect(url_for("nutrition.index"))
@@ -541,6 +550,8 @@ def delete_log(log_id: str):
 
         session.delete(log)
         session.commit()
+
+        log_activity("nutrition", "delete_log", f"id={log_id}")
 
         if _is_htmx():
             return _render_log_response(session)
@@ -608,6 +619,8 @@ def create_ingredient():
 
         session.add(ingredient)
         session.commit()
+
+        log_activity("nutrition", "create_ingredient", f"name={name}")
 
         if _is_htmx():
             return _render_ingredient_response(
@@ -694,6 +707,10 @@ def edit_ingredient(ingredient_id: str):
 
         session.commit()
 
+        log_activity(
+            "nutrition", "edit_ingredient", f"id={ingredient_id} name={ingredient.name}"
+        )
+
         if _is_htmx():
             return _render_ingredient_response(
                 session, trigger={"ingredientSaved": True}
@@ -758,8 +775,13 @@ def delete_ingredient(ingredient_id: str):
                 )
             return _render_ingredients("Ingredient not found"), 404
 
+        name = ingredient.name
         session.delete(ingredient)
         session.commit()
+
+        log_activity(
+            "nutrition", "delete_ingredient", f"id={ingredient_id} name={name}"
+        )
 
         if _is_htmx():
             return _render_ingredient_response(session)
@@ -868,6 +890,10 @@ def create_meal():
         session.add(meal)
         session.commit()
 
+        log_activity(
+            "nutrition", "create_meal", f"name={name} items={len(meal_ingredients)}"
+        )
+
         if _is_htmx():
             return _render_meal_response(session, trigger={"mealSaved": True})
         return redirect(url_for("nutrition.meals_index"))
@@ -973,6 +999,8 @@ def edit_meal(meal_id: str):
 
         session.commit()
 
+        log_activity("nutrition", "edit_meal", f"id={meal_id} name={meal.name}")
+
         if _is_htmx():
             return _render_meal_response(session, trigger={"mealSaved": True})
         return redirect(url_for("nutrition.meals_index"))
@@ -994,8 +1022,11 @@ def delete_meal(meal_id: str):
                 return _render_meal_response(session, "Meal not found", status=404)
             return _render_meals("Meal not found"), 404
 
+        name = meal.name
         session.delete(meal)
         session.commit()
+
+        log_activity("nutrition", "delete_meal", f"id={meal_id} name={name}")
 
         if _is_htmx():
             return _render_meal_response(session)

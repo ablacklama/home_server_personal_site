@@ -31,6 +31,7 @@
         <a class="nav-link" href="{{ url_for('nutrition.index') }}">Nutrition</a>
         <a class="nav-link" href="{{ url_for('stats.index') }}">Stats</a>
         <a class="nav-link" href="{{ url_for('preferences.index') }}">Prefs</a>
+        <a class="nav-link" href="{{ url_for('logs.index') }}">Logs</a>
         <label class="theme-switch">
           <span class="theme-switch__label">Theme</span>
           <select data-theme-switcher>
@@ -143,10 +144,15 @@
     }
 
     function addMsg(msg) {
-      // Deduplicate
+      // Deduplicate by real ID
       if (msg.id && msgDiv.querySelector('[data-msg-id="' + msg.id + '"]')) return;
-      // Remove old status messages when real message arrives
       var kind = msg.kind || "text";
+      // When a real (non-tmp) user message arrives from polling,
+      // remove the optimistic tmp- message that was shown instantly
+      if (msg.role === "user" && msg.id && msg.id.indexOf("tmp-") !== 0) {
+        msgDiv.querySelectorAll('.chat-bubble--user[data-msg-id^="tmp-"]').forEach(function(s){ s.remove(); });
+      }
+      // Remove old status messages when real message arrives
       if (kind !== "status") {
         msgDiv.querySelectorAll('[data-msg-kind="status"]').forEach(function(s){ s.remove(); });
       }
@@ -184,12 +190,15 @@
         .catch(function(){});
     }
 
+    var sending = false;
     form.addEventListener("submit", function(e) {
       e.preventDefault();
+      if (sending) return;
       var input = form.querySelector("input[name='message']");
       var text = input.value.trim();
       if (!text) return;
       input.value = "";
+      sending = true;
 
       // Show user message immediately
       addMsg({ id: "tmp-" + Date.now(), role: "user", content: text, html: text, kind: "text" });
@@ -216,7 +225,7 @@
         method: "POST",
         headers: {"Content-Type": "application/x-www-form-urlencoded", "X-Requested-With": "XMLHttpRequest"},
         body: "message=" + encodeURIComponent(text),
-      });
+      }).then(function() { sending = false; }).catch(function() { sending = false; });
     }
   })();
   </script>

@@ -20,6 +20,7 @@ from flask import (
 )
 from sqlalchemy import func, select
 
+from .activity_log import log_activity
 from .ai import AiConfig, handle_chat_message
 from .ai_models import AiMessage, ChatConversation
 
@@ -114,6 +115,8 @@ def create_conversation():
         session.commit()
         conv_id = conv.id
 
+    log_activity("chat", "create_conversation", f"id={conv_id} title={title}")
+
     # Return JSON for XHR (floating widget), redirect for normal form submit
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
         return jsonify({"id": conv_id})
@@ -200,6 +203,8 @@ def send_message(conv_id: str):
             "role": "user",
             "content": text,
         }
+
+    log_activity("chat", "send_message", f"conv={conv_id} len={len(text)}")
 
     # Kick off AI response in background
     def _process():
@@ -351,6 +356,8 @@ def widget_send(conv_id: str):
         session.add(user_msg)
         session.commit()
         msg_data = _msg_to_json(user_msg)
+
+    log_activity("chat", "widget_send", f"conv={conv_id} len={len(text)}")
 
     # Kick off AI response in background (same as send_message)
     def _process():

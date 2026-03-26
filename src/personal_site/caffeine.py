@@ -3,9 +3,18 @@ from __future__ import annotations
 import datetime as dt
 import json
 
-from flask import Blueprint, current_app, make_response, render_template, request
+from flask import (
+    Blueprint,
+    current_app,
+    make_response,
+    redirect,
+    render_template,
+    request,
+    url_for,
+)
 from sqlalchemy import select
 
+from .activity_log import log_activity
 from .caffeine_models import CaffeineEntry
 from .workouts import ALLOWED_TIME_BUCKETS, _bucket_to_time, _current_time_bucket
 
@@ -159,9 +168,92 @@ def create_entry():
         )
         session.commit()
 
+        log_activity(
+            "caffeine", "create", f"{consumed_on} {amount_mg}mg {source or ''}"
+        )
+
         if _is_htmx():
             return _render_entry_response(session, trigger={"caffeineEntrySaved": True})
         return _render_index()
+
+
+@bp.get("/entries/<entry_id>/edit")
+def edit_entry_form(entry_id: str):
+    SessionLocal = current_app.session  # type: ignore[attr-defined]
+    if SessionLocal is None:
+        return _render_index("Database is not configured"), 503
+
+    with SessionLocal() as session:
+        entry = session.get(CaffeineEntry, entry_id)
+        if entry is None:
+            return _render_index("Caffeine entry not found"), 404
+
+        return render_template(
+            "caffeine_edit.html",
+            title="Edit Caffeine",
+            entry=entry,
+        )
+
+
+@bp.post("/entries/<entry_id>/edit")
+def edit_entry(entry_id: str):
+    SessionLocal = current_app.session  # type: ignore[attr-defined]
+    if SessionLocal is None:
+        return _render_index("Database is not configured"), 503
+
+    with SessionLocal() as session:
+        entry = session.get(CaffeineEntry, entry_id)
+        if entry is None:
+            if _is_htmx():
+                return _render_entry_response(
+                    session, "Caffeine entry not found", status=404
+                )
+            return _render_index("Caffeine entry not found"), 404
+
+        consumed_on_raw = (request.form.get("consumed_on") or "").strip()
+        time_bucket = (request.form.get("time_bucket") or "").strip().lower()
+        amount_raw = (request.form.get("amount_mg") or "").strip()
+        source = (request.form.get("source") or "").strip() or None
+        notes = (request.form.get("notes") or "").strip() or None
+
+        if not amount_raw:
+            return _render_index("amount_mg is required"), 400
+        try:
+            amount_mg = int(amount_raw)
+        except ValueError:
+            return _render_index("amount_mg must be an integer"), 400
+        if amount_mg <= 0:
+            return _render_index("amount_mg must be greater than 0"), 400
+
+        if consumed_on_raw:
+            try:
+                consumed_on = dt.date.fromisoformat(consumed_on_raw)
+            except ValueError:
+                return _render_index("consumed_on must be a date"), 400
+        else:
+            consumed_on = entry.consumed_on
+
+        if not time_bucket:
+            time_bucket = entry.time_bucket
+        if time_bucket not in ALLOWED_TIME_BUCKETS:
+            return _render_index(
+                "time bucket must be morning, afternoon, or night"
+            ), 400
+
+        consumed_at = dt.datetime.combine(
+            consumed_on, _bucket_to_time(time_bucket)
+        ).replace(tzinfo=dt.timezone.utc)
+
+        entry.consumed_on = consumed_on
+        entry.consumed_at = consumed_at
+        entry.time_bucket = time_bucket
+        entry.amount_mg = amount_mg
+        entry.source = source
+        entry.notes = notes
+        session.commit()
+
+    log_activity("caffeine", "edit", f"id={entry_id} {amount_mg}mg")
+    return redirect(url_for("caffeine.index"))
 
 
 @bp.post("/entries/<entry_id>/delete")
@@ -188,6 +280,8 @@ def delete_entry(entry_id: str):
 
         session.delete(entry)
         session.commit()
+
+        log_activity("caffeine", "delete", f"id={entry_id}")
 
         if _is_htmx():
             return _render_entry_response(session)

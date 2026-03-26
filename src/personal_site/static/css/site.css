@@ -1564,6 +1564,115 @@ button:active,
 }
 
 /* ================================================================
+   ACTIVITY LOGS
+   ================================================================ */
+
+.log-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.log-filters input[type="text"] {
+  flex: 1;
+  min-width: 120px;
+}
+
+.log-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.log-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.log-table th,
+.log-table td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.log-table th {
+  background: var(--card);
+  font-weight: 600;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--fg-secondary);
+  position: sticky;
+  top: 0;
+}
+
+.log-table tbody tr:hover {
+  background: var(--card);
+}
+
+.log-table__time {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.log-table__detail {
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.log-table__path {
+  color: var(--fg-secondary);
+  font-family: monospace;
+  font-size: 0.78rem;
+}
+
+.log-table__ip {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.log-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: var(--border);
+  color: var(--fg-secondary);
+}
+
+.log-badge--sleep { background: var(--clr-sleep-glow); color: var(--clr-sleep); }
+.log-badge--nutrition { background: var(--clr-cal-glow); color: var(--clr-cal); }
+.log-badge--workout { background: var(--clr-workout-glow); color: var(--clr-workout); }
+.log-badge--caffeine { background: var(--clr-caffeine-glow); color: var(--clr-caffeine); }
+.log-badge--chat { background: var(--accent-glow); color: var(--accent); }
+.log-badge--prefs { background: var(--clr-sugar); color: #fff; }
+.log-badge--auth { background: rgba(239,68,68,0.15); color: #ef4444; }
+
+.log-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.log-pagination__info {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+/* ================================================================
    DESKTOP OVERRIDES (min-width: 768px)
    ================================================================ */
 

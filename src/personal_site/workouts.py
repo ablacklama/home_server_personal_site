@@ -15,6 +15,7 @@ from flask import (
 )
 from sqlalchemy import func, select
 
+from .activity_log import log_activity
 from .workouts_models import WorkoutEntry, WorkoutType
 
 bp = Blueprint("workouts", __name__, url_prefix="/workouts")
@@ -458,6 +459,9 @@ def create_type():
 
         session.add(WorkoutType(name=name, metric_schema=schema))
         session.commit()
+
+        log_activity("workout", "create_type", f"name={name}")
+
         if _is_htmx():
             return _render_type_response(session, trigger={"workoutTypeSaved": True})
         return redirect(url_for("workouts.index"))
@@ -596,9 +600,152 @@ def create_entry():
             )
         )
         session.commit()
+
+        log_activity("workout", "create", f"{workout_type.name} on {performed_on}")
+
         if _is_htmx():
             return _render_entry_response(session, trigger={"workoutEntrySaved": True})
         return redirect(url_for("workouts.index"))
+
+
+@bp.get("/entries/<entry_id>/edit")
+def entry_edit_form(entry_id: str):
+    SessionLocal = current_app.session  # type: ignore[attr-defined]
+    if SessionLocal is None:
+        return _render_index("Database is not configured"), 503
+
+    with SessionLocal() as session:
+        row = session.execute(
+            select(WorkoutEntry, WorkoutType)
+            .join(WorkoutType, WorkoutEntry.workout_type_id == WorkoutType.id)
+            .where(WorkoutEntry.id == entry_id)
+            .limit(1)
+        ).first()
+        if row is None:
+            return _render_index("Workout entry not found"), 404
+        entry, wt = row
+        performed_on = entry.performed_on or entry.performed_at.date()
+        bucket = entry.time_bucket or _current_time_bucket(entry.performed_at)
+        types = session.scalars(
+            select(WorkoutType).order_by(WorkoutType.name.asc())
+        ).all()
+
+        return render_template(
+            "workouts_entry_edit.html",
+            title="Edit Workout",
+            entry=entry,
+            workout_type=wt,
+            workout_types=types,
+            performed_on=performed_on.isoformat(),
+            time_bucket=bucket,
+        )
+
+
+@bp.post("/entries/<entry_id>/edit")
+def entry_edit(entry_id: str):
+    SessionLocal = current_app.session  # type: ignore[attr-defined]
+    if SessionLocal is None:
+        return _render_index("Database is not configured"), 503
+
+    with SessionLocal() as session:
+        entry = session.get(WorkoutEntry, entry_id)
+        if entry is None:
+            if _is_htmx():
+                return _render_entry_response(
+                    session, "Workout entry not found", status=404
+                )
+            return _render_index("Workout entry not found"), 404
+
+        type_id = (request.form.get("workout_type_id") or "").strip()
+        performed_on_raw = (request.form.get("performed_on") or "").strip()
+        time_bucket = (request.form.get("time_bucket") or "").strip().lower()
+        notes = (request.form.get("notes") or "").strip() or None
+
+        if not type_id:
+            return _render_index("Workout type is required"), 400
+
+        workout_type = session.get(WorkoutType, type_id)
+        if workout_type is None:
+            return _render_index("Unknown workout type"), 400
+
+        if performed_on_raw:
+            try:
+                performed_on = dt.date.fromisoformat(performed_on_raw)
+            except ValueError:
+                return _render_index("performed_on must be a date"), 400
+        else:
+            performed_on = entry.performed_on or entry.performed_at.date()
+
+        if not time_bucket:
+            time_bucket = entry.time_bucket or _current_time_bucket(dt.datetime.now())
+        if time_bucket not in ALLOWED_TIME_BUCKETS:
+            return (
+                _render_index("time bucket must be morning, afternoon, or night"),
+                400,
+            )
+
+        performed_at = dt.datetime.combine(
+            performed_on, _bucket_to_time(time_bucket)
+        ).replace(tzinfo=dt.timezone.utc)
+
+        raw_metrics: dict[str, object] = {}
+        for metric in workout_type.metric_schema:
+            key = str(metric.get("key", "")).strip()
+            if not key:
+                continue
+            metric_type = str(metric.get("type", "string")).strip().lower()
+            if metric_type in {"text"}:
+                metric_type = "string"
+            if metric_type in {"number", "int"}:
+                metric_type = "integer"
+
+            if metric_type == "hours_minutes":
+                raw_h = (request.form.get(f"metric__{key}__hours") or "").strip()
+                raw_m = (request.form.get(f"metric__{key}__minutes") or "").strip()
+                if raw_h == "" and raw_m == "":
+                    continue
+                try:
+                    hours = int(raw_h) if raw_h != "" else 0
+                    minutes = int(raw_m) if raw_m != "" else 0
+                except ValueError:
+                    return _render_index(f"'{key}' hours/minutes must be integers"), 400
+                if hours < 0 or minutes < 0 or minutes > 59:
+                    return (
+                        _render_index(f"'{key}' minutes must be 0-59 and hours >= 0"),
+                        400,
+                    )
+                raw_metrics[key] = {"hours": hours, "minutes": minutes}
+            elif metric_type == "integer":
+                raw = (request.form.get(f"metric__{key}") or "").strip()
+                if raw == "":
+                    continue
+                try:
+                    raw_metrics[key] = int(raw)
+                except ValueError:
+                    return _render_index(f"'{key}' must be an integer"), 400
+            else:
+                value = (request.form.get(f"metric__{key}") or "").strip()
+                if value:
+                    raw_metrics[key] = value
+
+        try:
+            metrics = _validate_and_apply_metrics(
+                schema_items=workout_type.metric_schema or [],
+                raw_metrics=raw_metrics,
+            )
+        except ValueError as exc:
+            return _render_index(str(exc)), 400
+
+        entry.workout_type_id = workout_type.id
+        entry.performed_at = performed_at
+        entry.performed_on = performed_on
+        entry.time_bucket = time_bucket
+        entry.notes = notes
+        entry.metrics = metrics
+        session.commit()
+
+    log_activity("workout", "edit", f"id={entry_id} type={workout_type.name}")
+    return redirect(url_for("workouts.index"))
 
 
 @bp.get("/entries/<entry_id>/delete")
@@ -654,6 +801,8 @@ def entry_delete(entry_id: str):
         session.delete(entry)
         session.commit()
 
+        log_activity("workout", "delete", f"id={entry_id}")
+
         if _is_htmx():
             return _render_entry_response(session)
     return redirect(url_for("workouts.index"))
@@ -706,8 +855,11 @@ def type_delete(type_id: str):
                     session, "Workout type not found", status=404
                 )
             return _render_type_new("Workout type not found"), 404
+        name = wt.name
         session.delete(wt)
         session.commit()
+
+        log_activity("workout", "delete_type", f"id={type_id} name={name}")
 
         if _is_htmx():
             return _render_type_response(session)

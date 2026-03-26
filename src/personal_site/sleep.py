@@ -3,9 +3,18 @@ from __future__ import annotations
 import datetime as dt
 import json
 
-from flask import Blueprint, current_app, make_response, render_template, request
+from flask import (
+    Blueprint,
+    current_app,
+    make_response,
+    redirect,
+    render_template,
+    request,
+    url_for,
+)
 from sqlalchemy import select
 
+from .activity_log import log_activity
 from .sleep_models import SleepEntry
 
 bp = Blueprint("sleep", __name__, url_prefix="/sleep")
@@ -161,9 +170,91 @@ def create_entry():
         )
         session.commit()
 
+        log_activity("sleep", "create", f"{slept_on} {duration_total}min q={quality}")
+
         if _is_htmx():
             return _render_entry_response(session, trigger={"sleepEntrySaved": True})
         return _render_index()
+
+
+@bp.get("/entries/<entry_id>/edit")
+def edit_entry_form(entry_id: str):
+    SessionLocal = current_app.session  # type: ignore[attr-defined]
+    if SessionLocal is None:
+        return _render_index("Database is not configured"), 503
+
+    with SessionLocal() as session:
+        entry = session.get(SleepEntry, entry_id)
+        if entry is None:
+            return _render_index("Sleep entry not found"), 404
+
+        return render_template(
+            "sleep_edit.html",
+            title="Edit Sleep",
+            entry=entry,
+            duration_hours=entry.duration_minutes // 60,
+            duration_minutes=entry.duration_minutes % 60,
+        )
+
+
+@bp.post("/entries/<entry_id>/edit")
+def edit_entry(entry_id: str):
+    SessionLocal = current_app.session  # type: ignore[attr-defined]
+    if SessionLocal is None:
+        return _render_index("Database is not configured"), 503
+
+    with SessionLocal() as session:
+        entry = session.get(SleepEntry, entry_id)
+        if entry is None:
+            if _is_htmx():
+                return _render_entry_response(
+                    session, "Sleep entry not found", status=404
+                )
+            return _render_index("Sleep entry not found"), 404
+
+        slept_on_raw = (request.form.get("slept_on") or "").strip()
+        duration_hours_raw = (request.form.get("duration_hours") or "").strip()
+        duration_minutes_raw = (request.form.get("duration_minutes") or "").strip()
+        quality_raw = (request.form.get("quality") or "").strip()
+        notes = (request.form.get("notes") or "").strip() or None
+
+        if slept_on_raw:
+            try:
+                slept_on = dt.date.fromisoformat(slept_on_raw)
+            except ValueError:
+                return _render_index("slept_on must be a date"), 400
+        else:
+            slept_on = entry.slept_on
+
+        try:
+            hours = int(duration_hours_raw or 0)
+            minutes = int(duration_minutes_raw or 0)
+        except ValueError:
+            return _render_index("duration must be numeric"), 400
+        if hours < 0 or minutes < 0 or minutes > 59:
+            return _render_index("duration minutes must be 0-59 and hours >= 0"), 400
+
+        duration_total = hours * 60 + minutes
+        if duration_total <= 0:
+            return _render_index("sleep duration is required"), 400
+
+        quality = None
+        if quality_raw:
+            try:
+                quality = int(quality_raw)
+            except ValueError:
+                return _render_index("quality must be an integer"), 400
+            if quality < 1 or quality > 5:
+                return _render_index("quality must be between 1 and 5"), 400
+
+        entry.slept_on = slept_on
+        entry.duration_minutes = duration_total
+        entry.quality = quality
+        entry.notes = notes
+        session.commit()
+
+    log_activity("sleep", "edit", f"id={entry_id} {slept_on} {duration_total}min")
+    return redirect(url_for("sleep.index"))
 
 
 @bp.post("/entries/<entry_id>/delete")
@@ -190,6 +281,8 @@ def delete_entry(entry_id: str):
 
         session.delete(entry)
         session.commit()
+
+        log_activity("sleep", "delete", f"id={entry_id}")
 
         if _is_htmx():
             return _render_entry_response(session)

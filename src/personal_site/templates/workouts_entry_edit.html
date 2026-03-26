@@ -1,0 +1,120 @@
+{% extends "workouts_base.html" %}
+
+{% block workouts_content %}
+<h1>Edit Workout</h1>
+
+<section class="card">
+    <form method="post" action="{{ url_for('workouts.entry_edit', entry_id=entry.id) }}"
+          id="edit-workout-form">
+        <label>
+            Workout type
+            <select name="workout_type_id" id="edit-workout-type-select" required>
+                {% for t in workout_types %}
+                <option value="{{ t.id }}" data-schema='{{ t.metric_schema | tojson }}'
+                    {% if t.id == entry.workout_type_id %}selected{% endif %}>
+                    {{ t.name }}
+                </option>
+                {% endfor %}
+            </select>
+        </label>
+
+        <label>
+            Day
+            <input type="date" name="performed_on" value="{{ performed_on }}" data-no-autodate />
+        </label>
+
+        <label>
+            Time
+            <select name="time_bucket">
+                <option value="morning" {% if time_bucket == 'morning' %}selected{% endif %}>Morning (5am-12pm)</option>
+                <option value="afternoon" {% if time_bucket == 'afternoon' %}selected{% endif %}>Afternoon (12pm-5pm)</option>
+                <option value="night" {% if time_bucket == 'night' %}selected{% endif %}>Night (5pm-5am)</option>
+            </select>
+        </label>
+
+        <div id="edit-metrics-container"></div>
+
+        <label>
+            Notes
+            <textarea name="notes" rows="3">{{ entry.notes or '' }}</textarea>
+        </label>
+
+        <div class="form-row">
+            <button type="submit" class="btn btn--primary">Save Changes</button>
+            <a href="{{ url_for('workouts.index') }}" class="btn">Cancel</a>
+        </div>
+    </form>
+</section>
+
+<script>
+(function () {
+    var select = document.getElementById("edit-workout-type-select");
+    var container = document.getElementById("edit-metrics-container");
+    var existingMetrics = {{ entry.metrics | tojson }};
+
+    function clearMetrics() {
+        container.innerHTML = "";
+    }
+
+    function addMetricInput(metric, existingVal) {
+        var key = (metric && metric.key) ? String(metric.key) : "";
+        if (!key) return;
+        var type = (metric && metric.type) ? String(metric.type).toLowerCase() : "string";
+
+        var label = document.createElement("label");
+        label.textContent = key;
+
+        if (type === "hours_minutes") {
+            var row = document.createElement("div");
+            row.className = "metric-row";
+
+            var h = document.createElement("input");
+            h.name = "metric__" + key + "__hours";
+            h.type = "number"; h.min = "0"; h.step = "1"; h.placeholder = "hours";
+            if (existingVal && existingVal.hours !== undefined) h.value = existingVal.hours;
+
+            var m = document.createElement("input");
+            m.name = "metric__" + key + "__minutes";
+            m.type = "number"; m.min = "0"; m.max = "59"; m.step = "1"; m.placeholder = "minutes";
+            if (existingVal && existingVal.minutes !== undefined) m.value = existingVal.minutes;
+
+            row.appendChild(h);
+            row.appendChild(m);
+            label.appendChild(row);
+        } else {
+            var input = document.createElement("input");
+            input.name = "metric__" + key;
+            input.autocomplete = "off";
+            if (type === "integer") {
+                input.type = "number"; input.step = "1";
+            } else {
+                input.type = "text";
+            }
+            if (existingVal !== undefined && existingVal !== null) input.value = existingVal;
+            label.appendChild(input);
+        }
+        container.appendChild(label);
+    }
+
+    function renderForSelection(useExisting) {
+        clearMetrics();
+        var opt = select.options[select.selectedIndex];
+        if (!opt) return;
+        var raw = opt.getAttribute("data-schema");
+        if (!raw) return;
+        var schema;
+        try { schema = JSON.parse(raw); } catch { return; }
+        if (!Array.isArray(schema)) return;
+        schema.forEach(function (m) {
+            var val = useExisting ? (existingMetrics[m.key] || null) : null;
+            addMetricInput(m, val);
+        });
+    }
+
+    select.addEventListener("change", function () { renderForSelection(false); });
+
+    // Initial render with existing values
+    renderForSelection(true);
+})();
+</script>
+{% endblock %}

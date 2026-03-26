@@ -13,6 +13,8 @@
                     {% endif %}
                     {% if c.entry_id %}
                     ·
+                    <a href="{{ url_for('caffeine.edit_entry_form', entry_id=c.entry_id) }}">Edit</a>
+                    ·
                     <form method="post" action="{{ url_for('caffeine.delete_entry', entry_id=c.entry_id) }}"
                         hx-post="{{ url_for('caffeine.delete_entry', entry_id=c.entry_id) }}"
                         hx-target="#caffeine-error"

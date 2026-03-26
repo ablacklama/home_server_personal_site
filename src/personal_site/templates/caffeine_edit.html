@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Edit Caffeine Entry</h1>
+
+<section class="card">
+    <form method="post" action="{{ url_for('caffeine.edit_entry', entry_id=entry.id) }}">
+        <label>
+            Date
+            <input type="date" name="consumed_on" value="{{ entry.consumed_on.isoformat() }}" data-no-autodate />
+        </label>
+
+        <label>
+            Time
+            <select name="time_bucket">
+                <option value="morning" {% if entry.time_bucket == 'morning' %}selected{% endif %}>Morning (5am-12pm)</option>
+                <option value="afternoon" {% if entry.time_bucket == 'afternoon' %}selected{% endif %}>Afternoon (12pm-5pm)</option>
+                <option value="night" {% if entry.time_bucket == 'night' %}selected{% endif %}>Night (5pm-5am)</option>
+            </select>
+        </label>
+
+        <label>
+            Amount (mg)
+            <input type="number" name="amount_mg" min="1" step="1" value="{{ entry.amount_mg }}" required />
+        </label>
+
+        <label>
+            Source
+            <input type="text" name="source" value="{{ entry.source or '' }}" placeholder="coffee, espresso, tea..." />
+        </label>
+
+        <label>
+            Notes
+            <textarea name="notes" rows="3">{{ entry.notes or '' }}</textarea>
+        </label>
+
+        <div class="form-row">
+            <button type="submit" class="btn btn--primary">Save Changes</button>
+            <a href="{{ url_for('caffeine.index') }}" class="btn">Cancel</a>
+        </div>
+    </form>
+</section>
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Edit Sleep Entry</h1>
+
+<section class="card">
+    <form method="post" action="{{ url_for('sleep.edit_entry', entry_id=entry.id) }}">
+        <label>
+            Date
+            <input type="date" name="slept_on" value="{{ entry.slept_on.isoformat() }}" data-no-autodate />
+        </label>
+
+        <label>
+            Duration
+            <div class="metric-row">
+                <input type="number" name="duration_hours" min="0" step="1" placeholder="hours"
+                       value="{{ duration_hours }}" />
+                <input type="number" name="duration_minutes" min="0" max="59" step="1" placeholder="minutes"
+                       value="{{ duration_minutes }}" />
+            </div>
+        </label>
+
+        <label>
+            Quality (1-5)
+            <input type="number" name="quality" min="1" max="5" step="1"
+                   value="{{ entry.quality if entry.quality is not none else '' }}" placeholder="optional" />
+        </label>
+
+        <label>
+            Notes
+            <textarea name="notes" rows="3">{{ entry.notes or '' }}</textarea>
+        </label>
+
+        <div class="form-row">
+            <button type="submit" class="btn btn--primary">Save Changes</button>
+            <a href="{{ url_for('sleep.index') }}" class="btn">Cancel</a>
+        </div>
+    </form>
+</section>
+{% endblock %}

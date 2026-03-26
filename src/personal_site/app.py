@@ -26,8 +26,10 @@ from .db import (
 )
 from .notify import NotificationError, NtfyConfig, listen_ntfy, send_ntfy
 from .security import require_admin
+from . import activity_log as _activity_log_models  # noqa: F401
 from .caffeine import bp as caffeine_bp
 from .chat import bp as chat_bp
+from .logs import bp as logs_bp
 from .nutrition import bp as nutrition_bp
 from .preferences import bp as preferences_bp
 from .sleep import bp as sleep_bp
@@ -110,6 +112,18 @@ def create_app() -> Flask:
         with last_activity_lock:
             last_activity_monotonic = time.monotonic()
 
+    def _client_today() -> dt.date:
+        """Derive the client's local date from tz_offset query param."""
+        raw = request.args.get("tz_offset", "")
+        if raw:
+            try:
+                offset_min = int(raw)
+                client_tz = dt.timezone(dt.timedelta(minutes=-offset_min))
+                return dt.datetime.now(client_tz).date()
+            except (ValueError, OverflowError):
+                pass
+        return dt.date.today()
+
     @app.get("/")
     def index():
         from .caffeine_models import CaffeineEntry
@@ -118,8 +132,21 @@ def create_app() -> Flask:
         from .sleep_models import SleepEntry
         from .workouts_models import WorkoutEntry, WorkoutType
 
-        today = dt.date.today()
-        today_label = today.strftime("%A, %B %-d")
+        # Support explicit date param for day navigation, else use client timezone
+        date_raw = (request.args.get("date") or "").strip()
+        if date_raw:
+            try:
+                day = dt.date.fromisoformat(date_raw)
+            except ValueError:
+                day = _client_today()
+        else:
+            day = _client_today()
+
+        client_today = _client_today()
+        is_today = day == client_today
+        prev_day = (day - dt.timedelta(days=1)).isoformat()
+        next_day = (day + dt.timedelta(days=1)).isoformat() if day < client_today else None
+        today_label = day.strftime("%A, %B %-d")
 
         default_goals = {
             "calories": None,
@@ -150,13 +177,19 @@ def create_app() -> Flask:
 
         SessionLocal = app.session  # type: ignore[attr-defined]
         if SessionLocal is None:
-            return render_template("home.html", **empty)
+            return render_template(
+                "home.html",
+                **empty,
+                prev_day=prev_day,
+                next_day=next_day,
+                is_today=is_today,
+            )
 
         with SessionLocal() as session:
             # Sleep
             sleep_entry = session.scalars(
                 select(SleepEntry)
-                .where(SleepEntry.slept_on == today)
+                .where(SleepEntry.slept_on == day)
                 .order_by(SleepEntry.created_at.desc())
                 .limit(1)
             ).first()
@@ -513,5 +546,6 @@ def create_app() -> Flask:
     app.register_blueprint(chat_bp)
     app.register_blueprint(stats_bp)
     app.register_blueprint(preferences_bp)
+    app.register_blueprint(logs_bp)
 
     return app

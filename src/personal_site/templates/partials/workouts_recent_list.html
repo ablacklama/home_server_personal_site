@@ -10,6 +10,8 @@
                     {{ w.performed_on }} · {{ w.time_bucket }}
                     {% if w.entry_id %}
                     ·
+                    <a href="{{ url_for('workouts.entry_edit_form', entry_id=w.entry_id) }}">Edit</a>
+                    ·
                     <form method="post" action="{{ url_for('workouts.entry_delete', entry_id=w.entry_id) }}"
                         hx-post="{{ url_for('workouts.entry_delete', entry_id=w.entry_id) }}"
                         hx-target="#workouts-error"

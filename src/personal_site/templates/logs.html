@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Activity Logs</h1>
+
+<form class="log-filters" method="get" action="{{ url_for('logs.index') }}">
+    <select name="category">
+        <option value="">All categories</option>
+        {% for cat in categories %}
+        <option value="{{ cat }}" {% if cat == selected_category %}selected{% endif %}>{{ cat }}</option>
+        {% endfor %}
+    </select>
+    <input type="text" name="q" value="{{ search }}" placeholder="Search..." autocomplete="off" />
+    <button type="submit" class="btn btn--primary">Filter</button>
+    {% if selected_category or search %}
+    <a href="{{ url_for('logs.index') }}" class="btn">Clear</a>
+    {% endif %}
+</form>
+
+{% if entries %}
+<div class="log-table-wrap">
+    <table class="log-table">
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th>Category</th>
+                <th>Action</th>
+                <th>Detail</th>
+                <th>Path</th>
+                <th>IP</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for e in entries %}
+            <tr>
+                <td class="log-table__time">{{ e.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                <td><span class="log-badge log-badge--{{ e.category }}">{{ e.category }}</span></td>
+                <td>{{ e.action }}</td>
+                <td class="log-table__detail">{{ e.detail or '' }}</td>
+                <td class="log-table__path">{{ e.path or '' }}</td>
+                <td class="log-table__ip">{{ e.ip or '' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if total_pages > 1 %}
+<nav class="log-pagination">
+    {% if page > 1 %}
+    <a href="{{ url_for('logs.index', page=page-1, category=selected_category, q=search) }}" class="btn">&larr; Prev</a>
+    {% endif %}
+    <span class="log-pagination__info">Page {{ page }} of {{ total_pages }}</span>
+    {% if page < total_pages %}
+    <a href="{{ url_for('logs.index', page=page+1, category=selected_category, q=search) }}" class="btn">Next &rarr;</a>
+    {% endif %}
+</nav>
+{% endif %}
+
+{% else %}
+<p class="muted">No log entries{% if selected_category or search %} matching your filters{% endif %}.</p>
+{% endif %}
+{% endblock %}

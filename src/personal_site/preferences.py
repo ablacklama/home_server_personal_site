@@ -5,6 +5,7 @@ import json
 from flask import Blueprint, current_app, make_response, render_template, request
 from sqlalchemy import select
 
+from .activity_log import log_activity
 from .preferences_models import UserPreferences
 from .reports import generate_weekly_report
 
@@ -134,6 +135,8 @@ def save():
         session.commit()
         prefs_data = _prefs_to_dict(prefs)
         included_list = json.loads(prefs.report_include or "[]")
+
+    log_activity("prefs", "save", f"email={prefs_data.get('email', '')}")
 
     ctx = {
         "title": "Preferences",

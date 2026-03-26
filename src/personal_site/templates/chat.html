@@ -39,6 +39,7 @@
             hx-post="{{ url_for('chat.send_message', conv_id=active_conversation.id) }}"
             hx-target="#chat-messages"
             hx-swap="beforeend"
+            hx-disabled-elt="button[type='submit']"
             id="chat-form">
             <input type="text" name="message" placeholder="Type a message..." autocomplete="off" required />
             <button type="submit">Send</button>
