@@ -14,10 +14,12 @@ dependencies = [
     "requests>=2.32.5",
     "sqlalchemy>=2.0.43",
     "markdown>=3.10.2",
+    "mcp[cli]>=1.27.0",
 ]
 
 [project.scripts]
 personal-site = "personal_site:main"
+personal-site-mcp = "personal_site.mcp_server:main"
 
 [build-system]
 requires = [ "uv_build>=0.8.3,<0.9.0" ]
