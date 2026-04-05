@@ -126,13 +126,5 @@
     });
 })();
 
-(function () {
-    var offset = new Date().getTimezoneOffset();
-    document.querySelectorAll("a.period-link").forEach(function (a) {
-        var url = new URL(a.href, location.origin);
-        url.searchParams.set("tz_offset", offset);
-        a.href = url.toString();
-    });
-})();
 </script>
 {% endblock %}

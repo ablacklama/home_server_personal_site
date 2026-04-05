@@ -16,6 +16,7 @@ from flask import (
 from sqlalchemy import func, select
 
 from .activity_log import log_activity
+from .tz import now_pacific, today_pacific
 from .workouts_models import WorkoutEntry, WorkoutType
 
 bp = Blueprint("workouts", __name__, url_prefix="/workouts")
@@ -326,11 +327,11 @@ def _load_index_context(session, error: str | None = None):
             }
         )
 
-    now = dt.datetime.now()
+    now = now_pacific()
     return {
         "workout_types": types,
         "recent_workouts": recent,
-        "default_performed_on": dt.date.today().isoformat(),
+        "default_performed_on": today_pacific().isoformat(),
         "default_time_bucket": _current_time_bucket(now),
         "error": error,
     }
@@ -344,8 +345,8 @@ def _render_index(message: str | None = None):
             title="Workouts",
             workout_types=[],
             recent_workouts=[],
-            default_performed_on=dt.date.today().isoformat(),
-            default_time_bucket=_current_time_bucket(dt.datetime.now()),
+            default_performed_on=today_pacific().isoformat(),
+            default_time_bucket=_current_time_bucket(now_pacific()),
             error=message
             or current_app.config.get("DB_ERROR")
             or "DATABASE_URL is not set (configure SQLite to use the workout tracker)",
@@ -622,10 +623,10 @@ def create_entry():
                     )
                 return _render_index("performed_on must be a date"), 400
         else:
-            performed_on = dt.date.today()
+            performed_on = today_pacific()
 
         if not time_bucket:
-            time_bucket = _current_time_bucket(dt.datetime.now())
+            time_bucket = _current_time_bucket(now_pacific())
         if time_bucket not in ALLOWED_TIME_BUCKETS:
             message = "time bucket must be morning, afternoon, or night"
             if _is_htmx():
@@ -788,7 +789,7 @@ def entry_edit(entry_id: str):
             performed_on = entry.performed_on or entry.performed_at.date()
 
         if not time_bucket:
-            time_bucket = entry.time_bucket or _current_time_bucket(dt.datetime.now())
+            time_bucket = entry.time_bucket or _current_time_bucket(now_pacific())
         if time_bucket not in ALLOWED_TIME_BUCKETS:
             return (
                 _render_index("time bucket must be morning, afternoon, or night"),

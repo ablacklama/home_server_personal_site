@@ -11,6 +11,7 @@ from sqlalchemy import func, select
 
 from .ai_models import AiMessage, AiPending
 from .notify import NotificationError, NtfyConfig, send_ntfy
+from .tz import now_pacific, today_pacific
 from .workouts import ALLOWED_TIME_BUCKETS, _bucket_to_time, _current_time_bucket
 from .caffeine_models import CaffeineEntry
 from .nutrition_models import (
@@ -685,7 +686,7 @@ def handle_ntfy_message(
     recent_rows = list(reversed(recent_rows))
 
     now_utc = dt.datetime.now(dt.timezone.utc)
-    now_local = dt.datetime.now().astimezone()
+    now_local = now_pacific()
     current_bucket = _current_time_bucket(now_local)
     today = now_local.date().isoformat()
 
@@ -954,9 +955,9 @@ def handle_ntfy_message(
             try:
                 slept_on = dt.date.fromisoformat(str(slept_on_raw))
             except ValueError:
-                slept_on = dt.date.today()
+                slept_on = today_pacific()
         else:
-            slept_on = dt.date.today()
+            slept_on = today_pacific()
 
         hours = int(duration_hours or 0)
         minutes = int(duration_minutes or 0)
@@ -1148,14 +1149,14 @@ def handle_ntfy_message(
             try:
                 consumed_on = dt.date.fromisoformat(str(consumed_on_raw))
             except ValueError:
-                consumed_on = dt.date.today()
+                consumed_on = today_pacific()
         else:
-            consumed_on = dt.date.today()
+            consumed_on = today_pacific()
 
         if not time_bucket:
-            time_bucket = _current_time_bucket(dt.datetime.now())
+            time_bucket = _current_time_bucket(now_pacific())
         if time_bucket not in ALLOWED_TIME_BUCKETS:
-            time_bucket = _current_time_bucket(dt.datetime.now())
+            time_bucket = _current_time_bucket(now_pacific())
 
         consumed_at = dt.datetime.combine(
             consumed_on, _bucket_to_time(time_bucket)
@@ -1417,14 +1418,14 @@ def handle_ntfy_message(
         try:
             performed_on = dt.date.fromisoformat(str(performed_on_raw))
         except ValueError:
-            performed_on = dt.date.today()
+            performed_on = today_pacific()
     else:
-        performed_on = dt.date.today()
+        performed_on = today_pacific()
 
     if not time_bucket:
-        time_bucket = _current_time_bucket(dt.datetime.now())
+        time_bucket = _current_time_bucket(now_pacific())
     if time_bucket not in ALLOWED_TIME_BUCKETS:
-        time_bucket = _current_time_bucket(dt.datetime.now())
+        time_bucket = _current_time_bucket(now_pacific())
 
     performed_at = dt.datetime.combine(
         performed_on, _bucket_to_time(time_bucket)
@@ -1616,18 +1617,35 @@ def handle_chat_message(
     recent_rows = list(reversed(recent_rows))
 
     # Build Claude messages from conversation history — skip status/info/error
-    claude_messages: list[dict[str, str]] = []
+    claude_messages: list[dict] = []
     for msg in recent_rows:
         kind = (msg.meta or {}).get("kind") if msg.meta else None
         if kind in ("status", "info", "error"):
             continue
         claude_messages.append({"role": msg.role, "content": msg.content})
 
+    # Add cache breakpoint on the last message in the history prefix.
+    # This lets the tool loop reuse the cached prefix on each iteration.
+    if len(claude_messages) >= 2:
+        # Cache the second-to-last message (the turn before the latest user msg)
+        _cache_idx = len(claude_messages) - 2
+        _msg = claude_messages[_cache_idx]
+        claude_messages[_cache_idx] = {
+            "role": _msg["role"],
+            "content": [
+                {
+                    "type": "text",
+                    "text": _msg["content"],
+                    "cache_control": {"type": "ephemeral"},
+                }
+            ],
+        }
+
     workout_types = session.scalars(
         select(WorkoutType).order_by(WorkoutType.name.asc())
     ).all()
 
-    now_local = dt.datetime.now().astimezone()
+    now_local = now_pacific()
     current_bucket = _current_time_bucket(now_local)
     today = now_local.date().isoformat()
 
@@ -1637,7 +1655,8 @@ def handle_chat_message(
         ", ".join(m.name for m in existing_meals) if existing_meals else "(none)"
     )
 
-    system_instructions = "\n".join(
+    # System prompt: split into stable (cacheable) and volatile (per-request) parts
+    _STABLE_SYSTEM = "\n".join(
         [
             "You are a personal health tracking assistant on a web app.",
             "You help the user log workouts, sleep, caffeine, and nutrition/meals.",
@@ -1645,15 +1664,6 @@ def handle_chat_message(
             "If the user is asking a question or chatting, call respond_to_user.",
             "If you need more info to complete a log, ask in your respond_to_user message.",
             "Be concise and helpful.",
-            "",
-            f"Current local datetime: {now_local.isoformat()}",
-            f"Today's date: {today}",
-            f"Current time bucket: {current_bucket}",
-            "",
-            "Existing workout types:",
-            _workout_types_summary(workout_types),
-            "",
-            f"Existing saved meals: {meals_summary}",
             "",
             "Rules:",
             "- Dates must be ISO YYYY-MM-DD.",
@@ -1676,7 +1686,35 @@ def handle_chat_message(
         ]
     )
 
+    volatile_context = "\n".join(
+        [
+            f"Current local datetime: {now_local.isoformat()}",
+            f"Today's date: {today}",
+            f"Current time bucket: {current_bucket}",
+            "",
+            "Existing workout types:",
+            _workout_types_summary(workout_types),
+            "",
+            f"Existing saved meals: {meals_summary}",
+        ]
+    )
+
+    system_prompt: list[dict] = [
+        {
+            "type": "text",
+            "text": _STABLE_SYSTEM,
+            "cache_control": {"type": "ephemeral"},
+        },
+        {
+            "type": "text",
+            "text": volatile_context,
+        },
+    ]
+
     tools = _build_tools(include_web_search=True)
+    # Mark the last tool for caching (tool definitions are stable across turns)
+    if tools:
+        tools[-1] = {**tools[-1], "cache_control": {"type": "ephemeral"}}
 
     client = Anthropic(api_key=ai_cfg.api_key)
 
@@ -1735,7 +1773,7 @@ def handle_chat_message(
         response = client.messages.create(
             model=ai_cfg.model,
             max_tokens=4096,
-            system=system_instructions,
+            system=system_prompt,
             tools=tools,
             messages=claude_messages,
         )
@@ -1954,9 +1992,9 @@ def _execute_chat_tool(
             try:
                 slept_on = dt.date.fromisoformat(str(slept_on_raw))
             except ValueError:
-                slept_on = dt.date.today()
+                slept_on = today_pacific()
         else:
-            slept_on = dt.date.today()
+            slept_on = today_pacific()
 
         hours = int(duration_hours or 0)
         minutes = int(duration_minutes or 0)
@@ -2013,12 +2051,12 @@ def _execute_chat_tool(
             try:
                 consumed_on = dt.date.fromisoformat(str(consumed_on_raw))
             except ValueError:
-                consumed_on = dt.date.today()
+                consumed_on = today_pacific()
         else:
-            consumed_on = dt.date.today()
+            consumed_on = today_pacific()
 
         if not time_bucket or time_bucket not in ALLOWED_TIME_BUCKETS:
-            time_bucket = _current_time_bucket(dt.datetime.now())
+            time_bucket = _current_time_bucket(now_pacific())
 
         consumed_at = dt.datetime.combine(
             consumed_on, _bucket_to_time(time_bucket)
@@ -2078,12 +2116,12 @@ def _execute_chat_tool(
             try:
                 performed_on = dt.date.fromisoformat(str(performed_on_raw))
             except ValueError:
-                performed_on = dt.date.today()
+                performed_on = today_pacific()
         else:
-            performed_on = dt.date.today()
+            performed_on = today_pacific()
 
         if not time_bucket or time_bucket not in ALLOWED_TIME_BUCKETS:
-            time_bucket = _current_time_bucket(dt.datetime.now())
+            time_bucket = _current_time_bucket(now_pacific())
 
         performed_at = dt.datetime.combine(
             performed_on, _bucket_to_time(time_bucket)
@@ -2192,12 +2230,12 @@ def _execute_chat_tool(
             try:
                 logged_on = dt.date.fromisoformat(str(logged_on_raw))
             except ValueError:
-                logged_on = dt.date.today()
+                logged_on = today_pacific()
         else:
-            logged_on = dt.date.today()
+            logged_on = today_pacific()
 
         if not time_bucket or time_bucket not in ALLOWED_TIME_BUCKETS:
-            time_bucket = _current_time_bucket(dt.datetime.now())
+            time_bucket = _current_time_bucket(now_pacific())
 
         log = NutritionLog(
             logged_on=logged_on,

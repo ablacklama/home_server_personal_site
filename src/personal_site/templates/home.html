@@ -185,22 +185,4 @@
 
 </div>
 
-<script>
-(function () {
-    // Inject tz_offset into all day-nav links so the server uses the right timezone
-    var offset = new Date().getTimezoneOffset();
-    document.querySelectorAll(".day-nav__link").forEach(function (a) {
-        var url = new URL(a.href, location.origin);
-        url.searchParams.set("tz_offset", offset);
-        a.href = url.toString();
-    });
-
-    // If no tz_offset on initial page load, redirect with it so today is correct
-    var params = new URLSearchParams(location.search);
-    if (!params.has("tz_offset")) {
-        params.set("tz_offset", offset);
-        location.replace("/?" + params.toString());
-    }
-})();
-</script>
 {% endblock %}

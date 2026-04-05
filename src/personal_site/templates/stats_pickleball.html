@@ -1,0 +1,392 @@
+{% extends "base.html" %}
+
+{% block head_extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<style>
+.insights-back { display: inline-block; margin-bottom: 1rem; color: var(--accent); text-decoration: none; font-size: 0.9rem; }
+.insights-back:hover { text-decoration: underline; }
+.insights-hero { text-align: center; margin-bottom: 2rem; }
+.insights-hero h1 { font-size: 1.6rem; margin: 0 0 0.25rem; }
+.insights-hero p { color: var(--text-muted); font-size: 0.85rem; margin: 0; }
+.insights-grid { display: grid; gap: 1.5rem; margin-bottom: 2rem; }
+.insight-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+}
+.insight-card h2 {
+    font-size: 1rem;
+    margin: 0 0 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.insight-card h2 .dot {
+    width: 10px; height: 10px; border-radius: 50%; display: inline-block;
+}
+.chart-wrap { position: relative; height: 260px; }
+.coeff-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; margin-top: 0.75rem; }
+.coeff-table th, .coeff-table td { text-align: left; padding: 0.35rem 0.5rem; border-bottom: 1px solid var(--border); }
+.coeff-table th { color: var(--text-muted); font-weight: 500; }
+.coeff-val { font-family: "JetBrains Mono", "Fira Code", monospace; }
+.coeff-val--pos { color: var(--clr-workout); }
+.coeff-val--neg { color: var(--accent); }
+.no-data-msg { color: var(--text-muted); text-align: center; padding: 3rem 1rem; font-size: 0.95rem; }
+.data-note { color: var(--text-muted); font-size: 0.78rem; text-align: center; margin-top: 0.5rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('stats.index') }}" class="insights-back">&larr; All Stats</a>
+
+<div class="insights-hero">
+    <h1>Pickleball Insights</h1>
+    <p>Performance trends, correlations, and predictions</p>
+</div>
+
+{% if not insights.has_data %}
+<div class="no-data-msg">
+    No pickleball data yet. Log some pickleball sessions to see insights here.
+</div>
+{% else %}
+
+<div class="insights-grid">
+
+    {# ── Performance over time ── #}
+    <div class="insight-card">
+        <h2><span class="dot" style="background: var(--clr-workout)"></span> Performance Over Time</h2>
+        <div class="chart-wrap">
+            <canvas id="perf-chart"></canvas>
+        </div>
+    </div>
+
+    {# ── Performance vs. prior sleep / caffeine ── #}
+    <div class="insight-card">
+        <h2><span class="dot" style="background: var(--clr-sleep)"></span> Performance vs. Prior Day Context</h2>
+        <div class="chart-wrap">
+            <canvas id="perf-context-chart"></canvas>
+        </div>
+        <p class="data-note">Shows prior-day sleep, caffeine, and sleep quality alongside pickleball performance</p>
+    </div>
+
+    {# ── Performance vs. same-day sleep / caffeine ── #}
+    <div class="insight-card">
+        <h2><span class="dot" style="background: var(--clr-caffeine)"></span> Performance vs. Same Day Context</h2>
+        <div class="chart-wrap">
+            <canvas id="perf-sameday-chart"></canvas>
+        </div>
+        <p class="data-note">Shows same-day sleep, caffeine, and sleep quality alongside pickleball performance</p>
+    </div>
+
+    {# ── Predicted vs. actual performance ── #}
+    <div class="insight-card">
+        <h2><span class="dot" style="background: var(--highlight)"></span> Predicted vs. Actual Performance</h2>
+        <div class="chart-wrap">
+            <canvas id="perf-pred-chart"></canvas>
+        </div>
+        {% if insights.perf_coefficients %}
+        <table class="coeff-table">
+            <thead><tr><th>Factor</th><th>Weight</th></tr></thead>
+            <tbody>
+            {% for name, val in insights.perf_coefficients.items() %}
+            <tr>
+                <td>{{ name }}</td>
+                <td class="coeff-val {% if val > 0 %}coeff-val--pos{% elif val < 0 %}coeff-val--neg{% endif %}">
+                    {{ "%+.3f"|format(val) }}
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+        <p class="data-note">Linear model trained on {{ insights.data_points }} data point{{ "s" if insights.data_points != 1 }} &mdash; accuracy improves with more data</p>
+    </div>
+
+    {# ── Sleep prediction ── #}
+    <div class="insight-card">
+        <h2><span class="dot" style="background: var(--clr-sleep)"></span> Predicted vs. Actual Sleep</h2>
+        <div class="chart-wrap">
+            <canvas id="sleep-pred-chart"></canvas>
+        </div>
+        {% if insights.sleep_coefficients %}
+        <table class="coeff-table">
+            <thead><tr><th>Factor</th><th>Weight</th></tr></thead>
+            <tbody>
+            {% for name, val in insights.sleep_coefficients.items() %}
+            <tr>
+                <td>{{ name }}</td>
+                <td class="coeff-val {% if val > 0 %}coeff-val--pos{% elif val < 0 %}coeff-val--neg{% endif %}">
+                    {{ "%+.3f"|format(val) }}
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+        <p class="data-note">Predicts sleep from prior day's caffeine, workouts, and sleep &mdash; {{ insights.sleep_data_points }} data point{{ "s" if insights.sleep_data_points != 1 }}</p>
+    </div>
+
+</div>
+
+<script>
+(function () {
+    var pb = {{ insights.pickleball | tojson }};
+    var sp = {{ insights.sleep | tojson }};
+
+    var cs = getComputedStyle(document.documentElement);
+    var clrPerf = cs.getPropertyValue("--clr-workout").trim() || "#34d399";
+    var clrSleep = cs.getPropertyValue("--clr-sleep").trim() || "#818cf8";
+    var clrCaff = cs.getPropertyValue("--clr-caffeine").trim() || "#fbbf24";
+    var clrPred = cs.getPropertyValue("--highlight").trim() || "#22d3ee";
+    var clrQuality = cs.getPropertyValue("--clr-sugar").trim() || "#c084fc";
+
+    var baseOpts = {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: { legend: { display: true, position: "bottom", labels: { boxWidth: 12, padding: 10, font: { size: 11 } } } },
+    };
+
+    // 1. Performance over time
+    var perfDates = pb.map(function(p){ return p.date; });
+    var perfVals = pb.map(function(p){ return p.performance; });
+    new Chart(document.getElementById("perf-chart"), {
+        type: "line",
+        data: {
+            labels: perfDates,
+            datasets: [{
+                label: "Performance (1-5)",
+                data: perfVals,
+                borderColor: clrPerf,
+                backgroundColor: clrPerf + "33",
+                fill: true,
+                tension: 0.3,
+                pointRadius: 5,
+                pointHoverRadius: 7,
+            }],
+        },
+        options: {
+            ...baseOpts,
+            scales: {
+                y: { min: 0, max: 5.5, title: { display: true, text: "Rating" } },
+            },
+        },
+    });
+
+    // 2. Performance vs prior day context (multi-axis)
+    new Chart(document.getElementById("perf-context-chart"), {
+        type: "line",
+        data: {
+            labels: perfDates,
+            datasets: [
+                {
+                    label: "Performance (1-5)",
+                    data: perfVals,
+                    borderColor: clrPerf,
+                    backgroundColor: clrPerf + "33",
+                    tension: 0.3,
+                    pointRadius: 4,
+                    yAxisID: "yPerf",
+                },
+                {
+                    label: "Prior Sleep (hrs)",
+                    data: pb.map(function(p){ return p.prev_sleep_hours; }),
+                    borderColor: clrSleep,
+                    backgroundColor: clrSleep + "33",
+                    tension: 0.3,
+                    pointRadius: 4,
+                    yAxisID: "yContext",
+                    borderDash: [6, 3],
+                },
+                {
+                    label: "Prior Sleep Quality",
+                    data: pb.map(function(p){ return p.prev_sleep_quality; }),
+                    borderColor: clrQuality,
+                    backgroundColor: clrQuality + "33",
+                    tension: 0.3,
+                    pointRadius: 4,
+                    yAxisID: "yPerf",
+                    borderDash: [2, 2],
+                },
+                {
+                    label: "Prior Caffeine (mg)",
+                    data: pb.map(function(p){ return p.prev_caffeine_mg; }),
+                    borderColor: clrCaff,
+                    backgroundColor: clrCaff + "33",
+                    tension: 0.3,
+                    pointRadius: 4,
+                    yAxisID: "yCaff",
+                    borderDash: [4, 4],
+                },
+            ],
+        },
+        options: {
+            ...baseOpts,
+            scales: {
+                yPerf: {
+                    type: "linear",
+                    position: "left",
+                    min: 0, max: 5.5,
+                    title: { display: true, text: "Rating / Quality" },
+                },
+                yContext: {
+                    type: "linear",
+                    position: "right",
+                    title: { display: true, text: "Hours" },
+                    grid: { drawOnChartArea: false },
+                },
+                yCaff: {
+                    type: "linear",
+                    position: "right",
+                    title: { display: true, text: "mg" },
+                    grid: { drawOnChartArea: false },
+                    display: false,
+                },
+            },
+        },
+    });
+
+    // 3. Performance vs same-day context (multi-axis)
+    new Chart(document.getElementById("perf-sameday-chart"), {
+        type: "line",
+        data: {
+            labels: perfDates,
+            datasets: [
+                {
+                    label: "Performance (1-5)",
+                    data: perfVals,
+                    borderColor: clrPerf,
+                    backgroundColor: clrPerf + "33",
+                    tension: 0.3,
+                    pointRadius: 4,
+                    yAxisID: "yPerf",
+                },
+                {
+                    label: "Same-Day Sleep (hrs)",
+                    data: pb.map(function(p){ return p.same_day_sleep_hours; }),
+                    borderColor: clrSleep,
+                    backgroundColor: clrSleep + "33",
+                    tension: 0.3,
+                    pointRadius: 4,
+                    yAxisID: "yContext",
+                    borderDash: [6, 3],
+                },
+                {
+                    label: "Same-Day Sleep Quality",
+                    data: pb.map(function(p){ return p.same_day_sleep_quality; }),
+                    borderColor: clrQuality,
+                    backgroundColor: clrQuality + "33",
+                    tension: 0.3,
+                    pointRadius: 4,
+                    yAxisID: "yPerf",
+                    borderDash: [2, 2],
+                },
+                {
+                    label: "Same-Day Caffeine (mg)",
+                    data: pb.map(function(p){ return p.same_day_caffeine_mg; }),
+                    borderColor: clrCaff,
+                    backgroundColor: clrCaff + "33",
+                    tension: 0.3,
+                    pointRadius: 4,
+                    yAxisID: "yCaff",
+                    borderDash: [4, 4],
+                },
+            ],
+        },
+        options: {
+            ...baseOpts,
+            scales: {
+                yPerf: {
+                    type: "linear",
+                    position: "left",
+                    min: 0, max: 5.5,
+                    title: { display: true, text: "Rating / Quality" },
+                },
+                yContext: {
+                    type: "linear",
+                    position: "right",
+                    title: { display: true, text: "Hours" },
+                    grid: { drawOnChartArea: false },
+                },
+                yCaff: {
+                    type: "linear",
+                    position: "right",
+                    title: { display: true, text: "mg" },
+                    grid: { drawOnChartArea: false },
+                    display: false,
+                },
+            },
+        },
+    });
+
+    // 4. Predicted vs actual performance
+    new Chart(document.getElementById("perf-pred-chart"), {
+        type: "line",
+        data: {
+            labels: perfDates,
+            datasets: [
+                {
+                    label: "Actual",
+                    data: perfVals,
+                    borderColor: clrPerf,
+                    backgroundColor: clrPerf + "33",
+                    tension: 0.3,
+                    pointRadius: 5,
+                },
+                {
+                    label: "Predicted",
+                    data: pb.map(function(p){ return p.predicted_performance; }),
+                    borderColor: clrPred,
+                    backgroundColor: clrPred + "33",
+                    tension: 0.3,
+                    pointRadius: 5,
+                    borderDash: [6, 3],
+                },
+            ],
+        },
+        options: {
+            ...baseOpts,
+            scales: {
+                y: { min: 0, max: 5.5, title: { display: true, text: "Performance (1-5)" } },
+            },
+        },
+    });
+
+    // 4. Predicted vs actual sleep
+    var sleepDates = sp.map(function(s){ return s.date; });
+    new Chart(document.getElementById("sleep-pred-chart"), {
+        type: "line",
+        data: {
+            labels: sleepDates,
+            datasets: [
+                {
+                    label: "Actual Sleep",
+                    data: sp.map(function(s){ return s.sleep_hours; }),
+                    borderColor: clrSleep,
+                    backgroundColor: clrSleep + "33",
+                    tension: 0.3,
+                    pointRadius: 4,
+                },
+                {
+                    label: "Predicted Sleep",
+                    data: sp.map(function(s){ return s.predicted_sleep_hours; }),
+                    borderColor: clrPred,
+                    backgroundColor: clrPred + "33",
+                    tension: 0.3,
+                    pointRadius: 4,
+                    borderDash: [6, 3],
+                },
+            ],
+        },
+        options: {
+            ...baseOpts,
+            scales: {
+                y: { beginAtZero: true, title: { display: true, text: "Hours" } },
+            },
+        },
+    });
+})();
+</script>
+{% endif %}
+{% endblock %}

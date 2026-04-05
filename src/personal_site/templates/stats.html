@@ -57,6 +57,13 @@
     </a>
 </div>
 
+<div class="stats-grid" style="margin-bottom: 1.5rem;">
+    <a href="{{ url_for('stats.pickleball_detail') }}" class="stat-card stat-card--link">
+        <div class="stat-card__value" style="font-size: 1.4rem;">&#127955;</div>
+        <div class="stat-card__label">Pickleball Insights</div>
+    </a>
+</div>
+
 <div class="charts-grid">
     <section class="card chart-container">
         <h2>Workouts</h2>
@@ -154,14 +161,5 @@
     });
 })();
 
-// Append tz_offset to period links so the server knows the client's timezone
-(function () {
-    var offset = new Date().getTimezoneOffset();
-    document.querySelectorAll("a.period-link").forEach(function (a) {
-        var url = new URL(a.href, location.origin);
-        url.searchParams.set("tz_offset", offset);
-        a.href = url.toString();
-    });
-})();
 </script>
 {% endblock %}

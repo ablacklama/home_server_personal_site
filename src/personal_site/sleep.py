@@ -16,6 +16,7 @@ from sqlalchemy import select
 
 from .activity_log import log_activity
 from .sleep_models import SleepEntry
+from .tz import today_pacific
 
 bp = Blueprint("sleep", __name__, url_prefix="/sleep")
 
@@ -54,7 +55,7 @@ def _load_index_context(session, error: str | None = None):
 
     return {
         "recent_sleep": recent,
-        "default_slept_on": dt.date.today().isoformat(),
+        "default_slept_on": today_pacific().isoformat(),
         "error": error,
     }
 
@@ -66,7 +67,7 @@ def _render_index(message: str | None = None):
             "sleep.html",
             title="Sleep",
             recent_sleep=[],
-            default_slept_on=dt.date.today().isoformat(),
+            default_slept_on=today_pacific().isoformat(),
             error=message
             or current_app.config.get("DB_ERROR")
             or "DATABASE_URL is not set (configure SQLite to use sleep tracking)",
@@ -122,7 +123,7 @@ def create_entry():
                     )
                 return _render_index("slept_on must be a date"), 400
         else:
-            slept_on = dt.date.today()
+            slept_on = today_pacific()
 
         try:
             hours = int(duration_hours_raw or 0)

@@ -8,6 +8,8 @@ from collections import deque
 import datetime as dt
 
 from flask import Flask, jsonify, render_template, request
+
+from .tz import now_pacific, today_pacific
 from sqlalchemy import select
 
 from . import ai_models  # noqa: F401
@@ -113,16 +115,8 @@ def create_app() -> Flask:
             last_activity_monotonic = time.monotonic()
 
     def _client_today() -> dt.date:
-        """Derive the client's local date from tz_offset query param."""
-        raw = request.args.get("tz_offset", "")
-        if raw:
-            try:
-                offset_min = int(raw)
-                client_tz = dt.timezone(dt.timedelta(minutes=-offset_min))
-                return dt.datetime.now(client_tz).date()
-            except (ValueError, OverflowError):
-                pass
-        return dt.date.today()
+        """Always use Pacific time for the current date."""
+        return today_pacific()
 
     @app.get("/")
     def index():
@@ -269,13 +263,15 @@ def create_app() -> Flask:
                 for e in workout_entries
             ]
 
-            # Caffeine
+            # Caffeine (standalone entries + caffeine from nutrition logs)
             caffeine_total = sum(
                 e.amount_mg
                 for e in session.scalars(
                     select(CaffeineEntry).where(CaffeineEntry.consumed_on == day)
                 ).all()
             )
+            for log in logs:
+                caffeine_total += log.total_caffeine_mg
 
             # Goals
             prefs = session.scalars(select(UserPreferences).limit(1)).first()
@@ -507,14 +503,12 @@ def create_app() -> Flask:
         ).start()
 
     def _report_scheduler():
-        import datetime as _dt
-
         from sqlalchemy import select as _select
 
         from .preferences_models import UserPreferences
         from .reports import generate_weekly_report, send_report
 
-        last_sent_date: _dt.date | None = None
+        last_sent_date: dt.date | None = None
 
         while True:
             time.sleep(300)  # check every 5 minutes
@@ -524,7 +518,7 @@ def create_app() -> Flask:
                 continue
 
             try:
-                now = _dt.datetime.now()
+                now = now_pacific()
                 today = now.date()
 
                 if last_sent_date == today:

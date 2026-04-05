@@ -16,6 +16,7 @@ from sqlalchemy import select
 
 from .activity_log import log_activity
 from .caffeine_models import CaffeineEntry
+from .tz import now_pacific, today_pacific
 from .workouts import ALLOWED_TIME_BUCKETS, _bucket_to_time, _current_time_bucket
 
 bp = Blueprint("caffeine", __name__, url_prefix="/caffeine")
@@ -51,10 +52,10 @@ def _load_index_context(session, error: str | None = None):
             }
         )
 
-    now = dt.datetime.now()
+    now = now_pacific()
     return {
         "recent_caffeine": recent,
-        "default_consumed_on": dt.date.today().isoformat(),
+        "default_consumed_on": today_pacific().isoformat(),
         "default_time_bucket": _current_time_bucket(now),
         "error": error,
     }
@@ -67,8 +68,8 @@ def _render_index(message: str | None = None):
             "caffeine.html",
             title="Caffeine",
             recent_caffeine=[],
-            default_consumed_on=dt.date.today().isoformat(),
-            default_time_bucket=_current_time_bucket(dt.datetime.now()),
+            default_consumed_on=today_pacific().isoformat(),
+            default_time_bucket=_current_time_bucket(now_pacific()),
             error=message
             or current_app.config.get("DB_ERROR")
             or "DATABASE_URL is not set (configure SQLite to use caffeine tracking)",
@@ -142,10 +143,10 @@ def create_entry():
                     return _render_entry_response(session, message, status=400)
                 return _render_index(message), 400
         else:
-            consumed_on = dt.date.today()
+            consumed_on = today_pacific()
 
         if not time_bucket:
-            time_bucket = _current_time_bucket(dt.datetime.now())
+            time_bucket = _current_time_bucket(now_pacific())
         if time_bucket not in ALLOWED_TIME_BUCKETS:
             message = "time bucket must be morning, afternoon, or night"
             if _is_htmx():

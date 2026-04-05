@@ -6,13 +6,14 @@ import logging
 from flask import render_template
 
 from .stats_queries import nutrition_stats, sleep_stats, workout_stats
+from .tz import today_pacific
 
 logger = logging.getLogger(__name__)
 
 
 def generate_weekly_report(session) -> str:
     """Generate an HTML weekly report covering the last 7 days."""
-    end = dt.date.today()
+    end = today_pacific()
     start = end - dt.timedelta(days=6)
 
     w = workout_stats(session, start, end)

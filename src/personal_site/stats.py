@@ -10,7 +10,13 @@ from flask import (
     request,
 )
 
-from .stats_queries import nutrition_stats, sleep_stats, workout_stats
+from .stats_queries import (
+    nutrition_stats,
+    pickleball_insights,
+    sleep_stats,
+    workout_stats,
+)
+from .tz import today_pacific
 
 bp = Blueprint("stats", __name__, url_prefix="/stats")
 
@@ -20,19 +26,8 @@ def _is_htmx() -> bool:
 
 
 def _client_today() -> dt.date:
-    """Return the client's local date using the tz_offset query param (minutes
-    offset from UTC, same sign as JS ``getTimezoneOffset``). Falls back to the
-    server's local date."""
-    raw = request.args.get("tz_offset", "")
-    if raw:
-        try:
-            offset_min = int(raw)
-            # JS getTimezoneOffset returns the opposite sign of UTC offset
-            client_tz = dt.timezone(dt.timedelta(minutes=-offset_min))
-            return dt.datetime.now(client_tz).date()
-        except (ValueError, OverflowError):
-            pass
-    return dt.date.today()
+    """Always use Pacific time for the current date."""
+    return today_pacific()
 
 
 def _parse_period() -> tuple[dt.date, dt.date, str]:
@@ -216,3 +211,23 @@ def api_nutrition():
     today = _client_today()
     with SessionLocal() as session:
         return jsonify(nutrition_stats(session, start, end, today=today))
+
+
+@bp.get("/pickleball")
+def pickleball_detail():
+    SessionLocal = current_app.session  # type: ignore[attr-defined]
+    if SessionLocal is None:
+        return render_template(
+            "stats_pickleball.html",
+            title="Pickleball Insights",
+            insights={"has_data": False},
+        )
+
+    with SessionLocal() as session:
+        insights = pickleball_insights(session)
+
+    return render_template(
+        "stats_pickleball.html",
+        title="Pickleball Insights",
+        insights=insights,
+    )

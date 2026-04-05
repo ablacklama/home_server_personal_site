@@ -23,6 +23,7 @@ from sqlalchemy import func, select
 from .activity_log import log_activity
 from .ai import AiConfig, handle_chat_message
 from .ai_models import AiMessage, ChatConversation
+from .tz import today_pacific
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +97,7 @@ def create_conversation():
         return redirect(url_for("chat.index"))
 
     with SessionLocal() as session:
-        today = dt.date.today()
+        today = today_pacific()
         date_label = today.strftime("%b %-d")
         # Count how many conversations were created today
         start_of_day = dt.datetime.combine(today, dt.time.min, tzinfo=dt.timezone.utc)

@@ -29,6 +29,7 @@ from .nutrition_models import (
     NutritionLog,
     NutritionLogItem,
 )
+from .tz import now_pacific, today_pacific
 from .workouts import ALLOWED_TIME_BUCKETS, _current_time_bucket
 
 bp = Blueprint("nutrition", __name__, url_prefix="/nutrition")
@@ -87,12 +88,12 @@ def _recent_logs(session, limit: int = 25) -> list[NutritionLog]:
 
 
 def _load_index_context(session, error: str | None = None) -> dict:
-    now = dt.datetime.now()
+    now = now_pacific()
     return {
         "ingredients": _all_ingredients(session),
         "meals": _all_meals(session),
         "recent_logs": _recent_logs(session),
-        "default_logged_on": dt.date.today().isoformat(),
+        "default_logged_on": today_pacific().isoformat(),
         "default_time_bucket": _current_time_bucket(now),
         "error": error,
     }
@@ -107,8 +108,8 @@ def _render_index(message: str | None = None):
             ingredients=[],
             meals=[],
             recent_logs=[],
-            default_logged_on=dt.date.today().isoformat(),
-            default_time_bucket=_current_time_bucket(dt.datetime.now()),
+            default_logged_on=today_pacific().isoformat(),
+            default_time_bucket=_current_time_bucket(now_pacific()),
             error=message
             or current_app.config.get("DB_ERROR")
             or "DATABASE_URL is not set",
@@ -248,11 +249,11 @@ def create_log():
                     return _render_log_response(session, msg, status=400)
                 return _render_index(msg), 400
         else:
-            logged_on = dt.date.today()
+            logged_on = today_pacific()
 
         # Time bucket
         if not time_bucket:
-            time_bucket = _current_time_bucket(dt.datetime.now())
+            time_bucket = _current_time_bucket(now_pacific())
         if time_bucket not in ALLOWED_TIME_BUCKETS:
             msg = "time bucket must be morning, afternoon, or night"
             if _is_htmx():
